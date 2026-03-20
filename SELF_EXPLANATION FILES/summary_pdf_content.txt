@@ -1,0 +1,164 @@
+This document outlines a challenge to develop a peer-to-peer, decentralized swarm coordination system for robots, drones, and AI agents using Vertex 2.0 technology.
+Overview of The Vertex Swarm Challenge 2026
+The challenge aims to develop peer-to-peer, decentralized coordination systems for heterogeneous robots, drones, and AI agents, emphasizing robustness, low latency, and real-world applicability without relying on centralized cloud infrastructure.
+Challenge Objectives and Core Focus
+The challenge seeks to create systems where multiple machines discover, negotiate, and coordinate directly with each other, eliminating middlemen and centralized control.
+
+Focus on peer-to-peer discovery, state sharing, and local decision-making.
+Emphasizes resilience, security, and autonomous self-healing.
+Rewards systems demonstrating depth of coordination, reliability, and robustness in real-world scenarios.
+Total prizes and grants exceed USD $27,000, including startup accelerator opportunities.
+Participants can build physical or digital swarms, with a preference for systems that operate during degraded connectivity or blackouts.
+
+Tracks and Their Focus Areas
+Participants can choose from four tracks, each with specific goals:
+
+Warm Up: Demonstrate basic peer-to-peer handshake, sync, and recovery. ​
+Ghost in the Machine: Apply Vertex’s model to a novel swarm of physical or digital agents, emphasizing innovation.
+Search & Rescue Swarms: Coordinate multi-drone missions in simulated blackout environments, focusing on resilience.
+The Agent Economy: Build leaderless AI agent networks for task negotiation and execution at machine speed, emphasizing decentralization and auditability.
+
+System Architecture and Building Blocks
+The system involves a layered architecture:
+
+Frontend: React + TypeScript for visualization and control.
+Swarm Runtime: Node.js or browser-based agents using Vertex SDK or simulation.
+P2P Discovery & State Sync: Vertex 2.0 SDK (Rust) or libp2p (JavaScript) for peer discovery and CRDT-based state sharing.
+Consensus Layer: Tashi’s Vertex 2.0 protocol for Byzantine fault-tolerant agreement.
+Communication: WebRTC DataChannels or WebSockets for peer-to-peer messaging.
+Modules to build include handshake, mesh visualizer, leaderless negotiation engine, and fault injection panel.
+
+Key Technologies and Implementation Strategy
+
+Use TypeScript/React for frontend visualization.
+Use FoxMQ (built on Vertex 2.0) for decentralized messaging via MQTT over WebSockets. ​
+Build a live, interactive dashboard simulating heterogeneous agents navigating shared environments.
+Follow a phased approach: setup, handshake, swarm runtime, negotiation engine, fault injection, and demo polishing.
+The core coordination logic must demonstrate meaningful implementation of Vertex 2.0 and/or FoxMQ, avoiding blockchain.
+The Rust binding (tashi-vertex-rs) wraps Vertex 2.0 for use in Rust, with FoxMQ providing a user-friendly abstraction via MQTT.
+
+Rules, Submission Strategy, and Technical Requirements
+
+Participants can submit one warm-up and one main project, with the warm-up being a subset of the main.
+Use core technologies: Vertex 2.0 for consensus, FoxMQ for messaging, CRDTs for state sync.
+The build must be open-source, original, and demonstrate meaningful decentralized coordination.
+The challenge emphasizes systems robustness, low latency, and real-world applicability over flashy demos.
+The deadline is March 30, 2026, with a structured 7-day plan for development phases.
+
+Why Blockchain Is Not Used
+
+The system relies on Vertex 2.0’s DAG-based, leaderless BFT consensus engine, not blockchain.
+Blockchain’s high latency, reliance on internet, and single points of failure make it unsuitable.
+Vertex 2.0 offers sub-100ms finality, offline capability, and Byzantine fault tolerance, ideal for machine coordination.
+The system provides cryptographic identity, tamper-proof event ordering, and verifiable proofs without blockchain’s drawbacks.
+
+Conceptual Foundations for Participants
+
+Peer-to-peer (P2P): Machines communicate directly without a central server.
+Byzantine Fault Tolerance (BFT): The system can tolerate up to ⅓ failures or malicious nodes while still reaching consensus.
+The challenge aims to build resilient, autonomous, decentralized systems capable of operating during network failures or blackouts, emphasizing real-time, machine-level coordination.
+
+Overview of the Full Swarm Robotics System
+The document details a comprehensive plan to build a decentralized, resilient multi-agent drone and rover swarm using Webots simulation, FoxMQ cluster with Vertex 2.0 BFT consensus, and a React dashboard, emphasizing fault tolerance, partial failure handling, and advanced coordination techniques within a 12-day timeline.
+Use of DAG in Vertex 2.0 for Fast Consensus
+Vertex 2.0 employs a Directed Acyclic Graph (DAG) structure allowing agents to write events simultaneously, enabling sub-100ms consensus without voting rounds or leaders.
+
+DAG replaces traditional blockchain's sequential blocks, allowing concurrent event writing.
+Multiple agents (e.g., Agent A, B, C) publish events simultaneously.
+The system derives the correct event order mathematically from the DAG.
+Achieves fast, leaderless, Byzantine Fault Tolerant (BFT) consensus. ​
+
+MQTT Protocol for Agent Communication
+MQTT is a lightweight messaging protocol used for real-time communication among agents, similar to a radio channel.
+
+Agents publish messages to topics (e.g., "swarm /state/drone-01"). ​
+Agents subscribe to topics to receive messages instantly. ​
+Example: Drone-01 publishes state; Rover-03 subscribes to all agents' states. ​
+Implementation in TypeScript with mqtt.js is straightforward (2 lines).
+
+FoxMQ as a Decentralized MQTT Broker
+FoxMQ replaces central MQTT brokers with a 4-node cluster using Vertex 2.0 BFT consensus, ensuring high availability. ​
+
+Agents connect to local FoxMQ nodes, which communicate via BFT.
+The cluster tolerates node failures (e.g., 1 node down still operational).
+No Rust coding required; run pre-built binaries and connect via MQTT in TypeScript.
+Ensures decentralized, fault-tolerant message passing.
+
+CRDTs for Shared State Management
+CRDTs enable conflict-free, concurrent updates to shared data like maps, ensuring consistency without conflicts. ​
+
+Example: Multiple agents update a shared grid map simultaneously. ​
+Merging updates is conflict-free, similar to Google Docs.
+Libraries like yjs or automerge in TypeScript facilitate CRDT implementation.
+Supports real-time, consistent shared state across agents. ​
+
+Essential Installation Requirements
+
+Node.js + npm ​
+Docker for running FoxMQ cluster ​
+Pre-built FoxMQ binary ​
+mqtt.js library
+React + TypeScript setup ​
+No Rust, ROS, or cloud accounts needed.
+
+Building the Basic Agent in TypeScript
+
+Create a class connecting to FoxMQ, announcing presence, listening for peers, and publishing state. ​
+Includes heartbeat, watchdog timers, and failure detection.
+Demonstrates peer discovery, state sharing, and fault detection.
+Can be tested with a simple handshake script.
+
+Full System Architecture and Components
+
+Three main layers: Webots simulation (physical robots), FoxMQ + Vertex (nervous system), React dashboard (visualization). ​
+Webots runs Python controllers for robots, publishing states via MQTT. ​
+FoxMQ cluster handles message consensus and fault tolerance.
+Dashboard visualizes live swarm behavior, topology, faults, and controls. ​
+Supports heterogeneous agents: drones, rovers, AI digital agents. ​
+Implements fault recovery, self-healing, and relay behaviors.
+
+Resilience and Fault Tolerance Strategies
+
+Detects drone failures via heartbeat timeouts. ​
+Handles Byzantine faults with BFT consensus rejecting bad data. ​
+Implements relay drones for network partition recovery. ​
+Supports partial failures with granular health states (full, degraded, relay-only, dead). ​
+Swarm self-heals within ~200ms, with automatic task reassignments. ​
+Demonstrates graceful degradation and robustness under multiple failure scenarios. ​
+
+Advanced Degraded Mode and Trust System
+
+Drones can operate in degraded states, stripping non-essential duties.
+Uses peer ranging and signal strength for position verification. ​
+Trust scores per capability (location, relay, detection) are updated via mesh triangulation and packet delivery metrics. ​
+Supports mesh-assigned positioning as fallback for GPS failure. ​
+Enables partial trust, allowing drones to continue relay functions even with GPS issues. ​
+
+12-Day Development Timeline
+
+Days 1-3: Set up FoxMQ cluster, basic agent connection, and handshake. ​
+Days 4-6: Implement heartbeat, watchdog, and failure detection.
+Days 7-9: Develop dashboard with live map, topology, and fault controls. ​
+Days 10-12: Integrate Webots simulation, add multiple agents, finalize demo, and submit. ​
+Emphasizes gradual build-up, testing, and polishing within the limited timeframe.
+
+Final Remarks
+The project aims to create a professional, full-stack decentralized swarm system with Webots physics, advanced fault tolerance, trust-based partial failure handling, and a live interactive dashboard, all within 12 days, with a focus on innovation, robustness, and clarity to stand out in the competition.
+Project Development and Focus Areas
+A structured plan outlines daily efforts and focus areas for a robotics project involving Webots, FoxMQ, agent logic, dashboards, and project submission.
+- Days 1-3: Focus on Foundation and FoxMQ, 2-3 hours/day, labeled as easy.
+- Days 4-6: Develop agent logic and CTM, 3-4 hours/day, medium difficulty.
+- Days 7-9: Build React dashboard, 2-3 hours/day, easy.
+- Days 10-11: Work on Webots simulation, 3-4 hours/day, more challenging.
+- Day 12: Polish and submit, 4-5 hours, easy.
+Immediate Action Steps for Day 1
+Instructions to set up the project environment and resources are provided for quick initiation.
+- Run specific PowerShell commands to create directories, initialize npm, install dependencies, and set up TypeScript.
+- Navigate back to root directory after setup. ​
+- Access a GitHub link to download the Windows binary of FoxMQ.
+- Request to share the list of files downloaded from the page for further instructions.
+Resources and Reference Links
+A comprehensive list of URLs related to project tools, documentation, tutorials, and related topics is provided for further reference.
+- Includes links to GitHub releases, official documentation, tutorials, hackathon info, research articles, and community discussions.
+- Resources cover Webots, FoxMQ, robotics simulation tools, and related AI and robotics development platforms.
+- Many links are to official docs, community forums, and educational content to support project development.
