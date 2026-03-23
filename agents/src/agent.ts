@@ -176,7 +176,7 @@ export class Agent {
     }
     if (topic.startsWith('swarm/events/trust/')) {
       const event = JSON.parse(payload);
-      console.log(`[${this.id}] 📢 MESH CONSENSUS: Agent ${event.liarId} is officially UNRELIABLE (vouched by ${event.vouchedBy})`);
+      console.log(`[${this.id}] 📢 MESH CONSENSUS: Agent ${event.liarId} is UNRELIABLE (Caught by ${event.detectedBy})`);
     }
     if (topic === 'swarm/fault/emergency') {
       console.log(`[${this.id}] EMERGENCY FREEZE received`);
@@ -291,10 +291,10 @@ export class Agent {
     // 2. Trust Evaluation
     const diff = Math.abs(gpsDistance - rssiDistance);
     if (diff > 5.0) {
-      peer.trust.location = 0; // Instant drop for hackathon impact
+      peer.trust.location = 0;
       
       // STREAM 1: LOCAL OBSERVATION
-      console.log(`[${this.id}] 🛑 LOCAL CTM: I suspect ${peerId} GPS is spoofed (Delta: ${diff.toFixed(1)}m)`);
+      console.log(`[${this.id}] 🛑 LOCAL CTM: I suspect ${peerId} is spoofing (Delta: ${diff.toFixed(1)}m)`);
 
       // STREAM 2: INSTANT GLOBAL BROADCAST (with 5s cooldown)
       const lastAlert = this.trustAlerts.get(peerId) || 0;
@@ -305,8 +305,7 @@ export class Agent {
           `swarm/events/trust/${peerId}`,
           JSON.stringify({
             liarId: peerId,
-            vouchedBy: this.id,
-            delta: diff.toFixed(1),
+            detectedBy: this.id,
             timestamp: Date.now()
           }),
           { qos: 2 }
