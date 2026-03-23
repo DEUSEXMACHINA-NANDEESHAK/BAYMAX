@@ -1,0 +1,57 @@
+
+# BAYMAX — Operation Blackout COMPREHENSIVE 12-DAY PLAN
+# Vertex Swarm Challenge 2026 — Track 1 'Ghost in the Machine'
+# Status: Day 2 Complete (March 23, 2026 10:10 PM IST)
+
+## COMPLETE ARCHITECTURE DIAGRAM
+
+```
+REAL WORLD SWARM (11 Heterogeneous Agents):
+┌─────────────────────────────────────────────────────────────┐
+│ WEBOTS 3D PHYSICS SIMULATION (Day 10+)                      │
+│                                                             │
+│ AIR LAYER (5 Drones):                                       │
+│  Drone-01 → NW Sector Scout (Mavic Pro model)               │
+│  Drone-02 → NE Sector Scout                                 │
+│  Drone-03 → SW Sector Scout                                 │
+│  Drone-04 → SE Sector Scout                                 │
+│  Drone-05 → DYNAMIC RELAY (auto-repositions)                │
+│                                                             │
+│ GROUND LAYER (4 Rovers):                                    │
+│  Rover-01 → Heavy Interceptor (e-puck model)                │
+│  Rover-02 → Fast Interceptor                                │
+│  Rover-03 → Medic/Support                                   │
+│  Rover-04 → Backup (activates on deaths)                    │
+│                                                             │
+│ DIGITAL LAYER (2 AI Agents):                                │
+│  AI-01 → Threat Analyzer (pure logic, no body)              │
+│  AI-02 → Coordination Validator (proof generation)          │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ paho-mqtt (Python → FoxMQ)
+                      ▼
+┌─────────────────────┼──────────────────────────────────────┐
+│ FOXMQ MESH (4 Nodes): BFT Consensus via Vertex 2.0         │
+│ Node0:1883 ←→ Node1:1884 ←→ Node2:1885 ←→ Node3:1886       │
+│ Tolerates ⌊(4-1)/3⌋ = 1 node failure                      │
+└─────────────────────┼──────────────────────────────────────┘
+                      │ WebSocket MQTT (React Dashboard)
+                      ▼
+┌─────────────────────┼──────────────────────────────────────┐
+│ REACT DASHBOARD (TypeScript): Live Mission Control         │
+│ • 2D Arena Map (agent positions from Webots GPS)           │
+│ • Mesh Graph (vis-network, edges = active P2P)             │
+│ • Agent Cards (health, battery, duties)                    │
+│ • FAULT INJECTION PANEL:                                   │
+│   [KILL] [FAIL GPS] [FAIL CAMERA] [EMERGENCY FREEZE]       │
+│ • Task Feed (auction events live)                          │
+│ • Proof Log (signed coordination proofs)                   │
+└────────────────────────────────────────────────────────────┘
+
+SCENARIO FLOW:
+1. Swarm forms (11 agents discover via swarm/discovery/)
+2. Drones sweep sectors, detect threats → swarm/detection/
+3. Rovers bid for intercept → swarm/task/bid/task-001
+4. Consensus winner announced → swarm/task/assign/task-001
+5. Mid-mission: Drone-03 dies → swarm/recovery/needed/drone-03
+6. Remaining drones re-cover sector
+7. FAULT signal → all freeze in <100ms
