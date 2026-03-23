@@ -1,0 +1,2 @@
+[users.BAYMAX_SWARM]
+password-hash = "$argon2id$v=19$m=19456,t=2,p=1$Gm1bc7EronqkWFVfEOWNsQ$KFLPlqLMKORQQbMhSej6V4oHPKeYlk3iFWY2uSRQKq0"
