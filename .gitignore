@@ -2,3 +2,7 @@ agents/node_modules
 agents/dist
 agents/package-lock.json
 .env
+*.d.ts
+*.js.map
+*.js
+*.ts.map

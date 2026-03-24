@@ -13,12 +13,12 @@ export type HealthStatus = 'FULL' | 'DEGRADED-L' | 'DEGRADED-S' | 'RELAY-ONLY' |
 export interface AgentState {
   id: string;
   type: AgentType;
-  pos: { x: number; y: number };
+  pos: { x: number; y: number; z: number }; // <-- Now 3D!
   battery: number;
   health: HealthStatus;
   duties: string[];
   timestamp: number;
-  trust: TrustScore; // <-- Add this!
+  trust: TrustScore;
 }
 
 export interface SystemHealth {
@@ -31,27 +31,30 @@ export interface SystemHealth {
 export class Agent {
   id: string;
   type: AgentType;
-  client: MqttClient;
-  state: AgentState;
-  systemHealth: SystemHealth;
-  peers: Map<string, AgentState> = new Map();
+  protected client: MqttClient;
+  protected state: AgentState;
+  protected systemHealth: SystemHealth;
+  protected peers: Map<string, AgentState> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  protected isDigital: boolean = false;
   private watchdogInterval: NodeJS.Timeout | null = null;
-  private trustAlerts: Map<string, number> = new Map();
+  protected trustAlerts: Map<string, number> = new Map();
   // --- SIMULATION DATA (Hidden from the swarm) ---
-  private physicalPos: { x: number; y: number };
-  private actualPeers: Map<string, { x: number; y: number }> = new Map();
+  protected physicalPos: { x: number; y: number; z: number };
+  protected actualPeers: Map<string, { x: number; y: number; z: number }> = new Map();
 
   constructor(type: AgentType, brokerPort = 1883) {
     this.id = `${type}-${uuidv4().slice(0, 6)}`;
     this.type = type;
     const startX = Math.random() * 20;
     const startY = Math.random() * 20;
-    this.physicalPos = { x: startX, y: startY }; 
+    const startZ = type === 'drone' ? (5 + Math.random() * 5) : 0; // Drones start in air, rovers on ground
+    
+    this.physicalPos = { x: startX, y: startY, z: startZ }; 
     this.state = {
       id: this.id,
       type,
-      pos: { x: startX, y: startY },
+      pos: { x: startX, y: startY, z: startZ },
       battery: 90,
       health: 'FULL',
       duties: this.getDefaultDuties(type),
@@ -120,8 +123,10 @@ export class Agent {
       this.state.timestamp = Date.now();
       this.state.battery -= 0.01;
       
-      this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
+     // Simulation: Publish our "Actual" physical position (hidden from agents, used by CTM)
+    if (!this.isDigital) {
       this.client.publish(`swarm/sim/actual/${this.id}`, JSON.stringify(this.physicalPos));
+    }
 
       console.log(
         `[${this.id}] 💓 heartbeat: (${this.state.pos.x.toFixed(1)},${this.state.pos.y.toFixed(1)}) battery:${this.state.battery.toFixed(1)} health:${this.state.health}`
@@ -263,29 +268,35 @@ export class Agent {
    * -60 to -70 dBm = Getting far
    * -90 dBm = Connection lost
    */
-  private calculateRSSI(peerId: string): number {
+  private calculateRSSI(peerId: string): number | null {
     const actual = this.actualPeers.get(peerId);
-    if (!actual) return -100; // Unknown peer
+    if (!actual) return null; // SAFETY: No simulation data yet
 
-    // Distance between MY physical position and THEIR physical position
+    // Distance between MY physical position and THEIR physical position (3D)
     const dx = this.physicalPos.x - actual.x;
     const dy = this.physicalPos.y - actual.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const dz = this.physicalPos.z - actual.z;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
     const rssi = -30 - (20 * Math.log10(distance + 1));
     return Math.round(rssi);
   }
 
-
   private verifyPeer(peerId: string) {
     const peer = this.peers.get(peerId);
     if (!peer) return;
 
-    // 1. Calculations
+    // 1. Skip verification for digital entities (AI Agents)
+    if (peer.type === 'ai-agent') return;
+
     const dx = this.state.pos.x - peer.pos.x;
     const dy = this.state.pos.y - peer.pos.y;
-    const gpsDistance = Math.sqrt(dx * dx + dy * dy);
+    const dz = this.state.pos.z - peer.pos.z;
+    const gpsDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    
     const rssi = this.calculateRSSI(peerId);
+    if (rssi === null) return; // Skip if sim data hasn't arrived yet
+
     const rssiDistance = Math.pow(10, (rssi + 30) / -20) - 1;
 
     // 2. Trust Evaluation
@@ -315,4 +326,4 @@ export class Agent {
       peer.trust.location = Math.min(1.0, peer.trust.location + 0.05);
     }
   }
-}
+}

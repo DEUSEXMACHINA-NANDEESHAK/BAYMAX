@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "test-two": "tsx src/test-two-agents.ts",
-    "rover-only": "tsx src/rover-only.ts"
+    "rover-only": "tsx src/rover-only.ts",
+    "specialized-swarm": "tsx src/test-specialized-swarm.ts",
+    "ai-agent": "tsx src/ai-agent.ts"
   },
   "keywords": [],
   "author": "",
