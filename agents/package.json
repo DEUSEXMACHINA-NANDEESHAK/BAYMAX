@@ -9,14 +9,19 @@
     "rover-only": "tsx src/rover-only.ts",
     "specialized-swarm": "tsx src/test-specialized-swarm.ts",
     "ai-agent": "tsx src/ai-agent.ts",
-    "test-auction": "tsx src/test-task-auction.ts"
+    "test-auction": "tsx src/test-task-auction.ts",
+    "sim-sweep": "tsx src/sim-sweep-rescue.ts",
+    "sim-relay": "npx tsx src/sim-dead-relay.ts",
+    "sim-blindeye": "npx tsx src/sim-blind-eye.ts",
+    "sim-ultimate": "npx tsx src/sim-ultimate.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "mqtt": "^5.15.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",

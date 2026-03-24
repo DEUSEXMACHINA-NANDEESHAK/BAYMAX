@@ -6,3 +6,16 @@ agents/package-lock.json
 *.js.map
 *.js
 *.ts.map
+*.exe
+*.d
+*.ps1
+*.pem
+*.db
+*.toml
+*.log
+*.mjs
+*.cjs
+*.tsbuildinfo
+*.cjs.map
+*.d.mts
+node_modules

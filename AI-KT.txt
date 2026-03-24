@@ -120,3 +120,5 @@ Agents won't connect:
 ## DEPENDENCIES
 npm: mqtt uuid typescript @types/node ts-node
 FoxMQ binary: https://github.com/tashigg/foxmq/releases [web:37]
+
+TO-RUN: .\foxmq.exe run -f foxmq.d\key_0.pem -L 0.0.0.0:1883 foxmq.d

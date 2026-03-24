@@ -25,20 +25,23 @@ export class AIAgent extends Agent {
     if (this.client.connected) sub();
     else this.client.on('connect', sub);
 
-    this.client.on('message', (topic, message) => {
-      if (topic.startsWith('swarm/detection/')) {
-        this.processDetection(JSON.parse(message.toString()));
-      }
-    });
-
     // Periodically publish "Coordination Proofs"
     setInterval(() => this.publishCoordinationProof(), 5000);
+  }
+
+  protected onMessage(topic: string, payload: string) {
+    // ALWAYS call super to handle kill/diagnose/etc.
+    super.onMessage(topic, payload);
+
+    if (topic.startsWith('swarm/detection/')) {
+        this.processDetection(JSON.parse(payload));
+    }
   }
 
   private processDetection(data: any) {
     const { id, pos } = data;
     // Identify threat by its 1m x 1m grid cell
-    const cellId = `${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`;
+    const cellId = `${Math.round(pos.x)}_${Math.round(pos.y)}_${Math.round(pos.z)}`;
     
     let threat = this.threatMap.get(cellId);
     if (!threat) {

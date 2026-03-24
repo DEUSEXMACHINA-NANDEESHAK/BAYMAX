@@ -10,7 +10,7 @@ export class Agent {
   id: string;
   type: AgentType;
   protected client: MqttClient;
-  protected state: AgentState;
+  public state: AgentState;
   protected systemHealth: SystemHealth;
   protected peers: Map<string, AgentState> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -19,8 +19,9 @@ export class Agent {
   protected taskEngine: TaskEngine;
   private watchdogInterval: NodeJS.Timeout | null = null;
   protected trustAlerts: Map<string, number> = new Map();
+  public isFrozen: boolean = false;
   // --- SIMULATION DATA (Hidden from the swarm) ---
-  protected physicalPos: { x: number; y: number; z: number };
+  public physicalPos: { x: number; y: number; z: number };
   protected actualPeers: Map<string, { x: number; y: number; z: number }> = new Map();
 
   constructor(type: AgentType, brokerPort = 1883) {
@@ -102,7 +103,15 @@ export class Agent {
   }
 
   private subscribe() {
-    this.client.subscribe(['swarm/state/#', 'swarm/fault/emergency', 'swarm/events/#','swarm/health/#','swarm/sim/actual/#', 'swarm/task/#']);
+    this.client.subscribe([
+      'swarm/state/#', 
+      'swarm/fault/emergency', 
+      'swarm/sim/inject/#',
+      'swarm/events/#',
+      'swarm/health/#',
+      'swarm/sim/actual/#', 
+      'swarm/task/#'
+    ]);
   }
 
   private startHeartbeat() {
@@ -113,14 +122,9 @@ export class Agent {
       
       this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
 
-      // Simulation: Publish our "Actual" physical position (hidden from agents, used by CTM)
-    if (!this.isDigital) {
-      this.client.publish(`swarm/sim/actual/${this.id}`, JSON.stringify(this.physicalPos));
-    }
-
-      console.log(
-        `[${this.id}] 💓 heartbeat: (${this.state.pos.x.toFixed(1)},${this.state.pos.y.toFixed(1)}) battery:${this.state.battery.toFixed(1)} health:${this.state.health}`
-      );
+      if (!this.isDigital) {
+        this.client.publish(`swarm/sim/actual/${this.id}`, JSON.stringify(this.physicalPos));
+      }
     }, 1000);
   }
 
@@ -130,8 +134,24 @@ export class Agent {
     }, 100); // 10Hz control loop for smooth motion
   }
 
+  /**
+   * Pushes the current state to MQTT instantly. 
+   * Useful for simulations to achieve high-frequency animation.
+   */
+  public publishState() {
+    if (this.isFrozen) return;
+    this.state.timestamp = Date.now();
+    this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
+    
+    if (!this.isDigital) {
+      this.client.publish(`swarm/sim/actual/${this.id}`, JSON.stringify(this.physicalPos));
+    }
+  }
+
   // To be overridden by subclasses
-  protected update() {}
+  protected update() {
+    if (this.isFrozen) return;
+  }
 
 
   private startWatchdog() {
@@ -139,12 +159,11 @@ export class Agent {
       const now = Date.now();
       this.peers.forEach((peer, peerId) => {
         const silence = now - peer.timestamp;
-        if (silence > 3000 && peer.health !== 'DEAD') {
+        if (silence > 10000 && peer.health !== 'DEAD') {
           // 1. Mark locally
           peer.health = 'DEAD';
 
-          // 2. Publish to the Shared Event Log
-          console.log(`[${this.id}] 💀 LOCAL WATCHDOG: Detected ${peerId} as DEAD`);
+          // 2. Publish to the Shared Event Log (no console spam)
           this.client.publish(
             `swarm/events/dead/${peerId}`,
             JSON.stringify({
@@ -162,16 +181,12 @@ export class Agent {
 
 
 
-  private onMessage(topic: string, payload: string) {
+  protected onMessage(topic: string, payload: string) {
     if (topic.startsWith('swarm/state/')) {
       const peer: AgentState = JSON.parse(payload);
-      console.log(`[${this.id}] swarm size: ${this.peers.size + 1} agents total`);
       if (peer.id !== this.id) {
         this.peers.set(peer.id, peer);
         this.verifyPeer(peer.id);
-        console.log(`[${this.id}] saw peer ${peer.id} (${peer.type}) at (${peer.pos.x.toFixed(1)},${peer.pos.y.toFixed(1)})`);
-        console.log(`[${this.id}] swarm size(original): ${this.peers.size + 1} agents total`);
-        console.log(`[${this.id}] swarm size(current): ${this.getActiveCount()} active`);
       }
     }
     if (topic.startsWith('swarm/events/dead/')) {
@@ -183,8 +198,18 @@ export class Agent {
       console.log(`[${this.id}] 📢 MESH CONSENSUS: Agent ${event.liarId} is UNRELIABLE (Caught by ${event.detectedBy})`);
     }
     if (topic === 'swarm/fault/emergency') {
-      console.log(`[${this.id}] EMERGENCY FREEZE received`);
-      this.freeze();
+      const data = JSON.parse(payload);
+      // If no target is specified, it's a GLOBAL freeze. If target matches, kill self.
+      if (!data.target || data.target === this.id) {
+        console.log(`[${this.id}] 🛑 EMERGENCY SHUTDOWN RECEIVED`);
+        this.freeze();
+      }
+    }
+    if (topic === 'swarm/sim/inject/fail') {
+      const data = JSON.parse(payload);
+      if (data.id === this.id) {
+        this.failSystem(data.system);
+      }
     }
     if (topic.startsWith('swarm/health/')) {
       const event = JSON.parse(payload);
@@ -217,9 +242,15 @@ export class Agent {
   }
 
   private freeze() {
+    console.log(`[${this.id}] ❄️ FREEZING AGENT`);
+    this.isFrozen = true;
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     if (this.watchdogInterval) clearInterval(this.watchdogInterval);
+    if (this.controlLoopInterval) clearInterval(this.controlLoopInterval);
     this.state.health = 'DEAD';
+    this.state.battery = 0;
+    // Final broadcast of DEAD state
+    this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state), { retain: true });
   }
 
   private announce() {
@@ -311,7 +342,7 @@ export class Agent {
 
     // 2. Trust Evaluation
     const diff = Math.abs(gpsDistance - rssiDistance);
-    if (diff > 5.0) {
+    if (diff > 200.0) { // CTM Threshold at 200m (Strictly for Scenario 3 spoofing)
       peer.trust.location = 0;
       
       // STREAM 1: LOCAL OBSERVATION

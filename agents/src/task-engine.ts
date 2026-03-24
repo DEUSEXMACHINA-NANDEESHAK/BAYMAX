@@ -14,7 +14,7 @@ export class TaskEngine extends EventEmitter {
   private auctionStartTimes: Map<string, number> = new Map();
   
   // High-speed performance tuning: 100ms (clinging to the 30ms fabric speed)
-  private readonly AUCTION_WINDOW = 100; 
+  private readonly AUCTION_WINDOW = 250; 
 
   constructor(private agentId: string, private client: MqttClient) {
     super();
