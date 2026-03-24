@@ -8,7 +8,8 @@
     "test-two": "tsx src/test-two-agents.ts",
     "rover-only": "tsx src/rover-only.ts",
     "specialized-swarm": "tsx src/test-specialized-swarm.ts",
-    "ai-agent": "tsx src/ai-agent.ts"
+    "ai-agent": "tsx src/ai-agent.ts",
+    "test-auction": "tsx src/test-task-auction.ts"
   },
   "keywords": [],
   "author": "",

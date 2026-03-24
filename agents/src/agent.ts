@@ -1,32 +1,10 @@
 import mqtt, { MqttClient } from 'mqtt';
 import { v4 as uuidv4 } from 'uuid';
+import { TaskEngine } from './task-engine.js';
 
-// 1. Add this interface near the top
-export interface TrustScore {
-  location: number; // 0.0 - 1.0 (confidence in reported GPS)
-  relay: number;    // 0.0 - 1.0 (confidence in message forwarding)
-  method: 'self-reported' | 'peer-verified' | 'mesh-assigned';
-}
-export type AgentType = 'drone' | 'rover' | 'ai-agent';
-export type HealthStatus = 'FULL' | 'DEGRADED-L' | 'DEGRADED-S' | 'RELAY-ONLY' | 'DEAD';
-
-export interface AgentState {
-  id: string;
-  type: AgentType;
-  pos: { x: number; y: number; z: number }; // <-- Now 3D!
-  battery: number;
-  health: HealthStatus;
-  duties: string[];
-  timestamp: number;
-  trust: TrustScore;
-}
-
-export interface SystemHealth {
-  gps: boolean;
-  camera: boolean;
-  radio: boolean;
-  battery_sensor: boolean;
-}
+import type {
+  TrustScore, AgentType, HealthStatus, AgentState, SystemHealth
+} from './types.js';
 
 export class Agent {
   id: string;
@@ -36,7 +14,9 @@ export class Agent {
   protected systemHealth: SystemHealth;
   protected peers: Map<string, AgentState> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private controlLoopInterval: NodeJS.Timeout | null = null;
   protected isDigital: boolean = false;
+  protected taskEngine: TaskEngine;
   private watchdogInterval: NodeJS.Timeout | null = null;
   protected trustAlerts: Map<string, number> = new Map();
   // --- SIMULATION DATA (Hidden from the swarm) ---
@@ -87,7 +67,15 @@ export class Agent {
       this.subscribe();
       this.startHeartbeat();
       this.startWatchdog();
+      this.startControlLoop();
       this.announce();
+    });
+
+    this.taskEngine = new TaskEngine(this.id, this.client);
+    
+    // Listen for assignments from the engine
+    this.taskEngine.on('task-assigned', (data: { taskId: string, pos: { x: number, y: number, z: number } }) => {
+        this.onTaskAssigned(data.taskId, data.pos);
     });
 
 
@@ -114,7 +102,7 @@ export class Agent {
   }
 
   private subscribe() {
-    this.client.subscribe(['swarm/state/#', 'swarm/fault/emergency', 'swarm/events/#','swarm/health/#','swarm/sim/actual/#']);
+    this.client.subscribe(['swarm/state/#', 'swarm/fault/emergency', 'swarm/events/#','swarm/health/#','swarm/sim/actual/#', 'swarm/task/#']);
   }
 
   private startHeartbeat() {
@@ -123,7 +111,9 @@ export class Agent {
       this.state.timestamp = Date.now();
       this.state.battery -= 0.01;
       
-     // Simulation: Publish our "Actual" physical position (hidden from agents, used by CTM)
+      this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
+
+      // Simulation: Publish our "Actual" physical position (hidden from agents, used by CTM)
     if (!this.isDigital) {
       this.client.publish(`swarm/sim/actual/${this.id}`, JSON.stringify(this.physicalPos));
     }
@@ -133,6 +123,15 @@ export class Agent {
       );
     }, 1000);
   }
+
+  private startControlLoop() {
+    this.controlLoopInterval = setInterval(() => {
+      this.update();
+    }, 100); // 10Hz control loop for smooth motion
+  }
+
+  // To be overridden by subclasses
+  protected update() {}
 
 
   private startWatchdog() {
@@ -201,7 +200,16 @@ export class Agent {
       }
     }
 
-
+    // Task Negotiation 
+    if (topic.startsWith('swarm/task/verified')) {
+        const task = JSON.parse(payload);
+        this.taskEngine.handleTask(task.taskId, task.pos, this.state);
+    }
+    if (topic.startsWith('swarm/task/bid/')) {
+        const bid = JSON.parse(payload);
+        const taskId = topic.split('/')[3] || 'unknown';
+        this.taskEngine.collectBid(taskId, bid);
+    }
   }
 
   private getActiveCount(): number {
@@ -283,6 +291,8 @@ export class Agent {
   }
 
   private verifyPeer(peerId: string) {
+    if (this.isDigital) return; // Digital agents (AI) have no radio/CTM hardware
+    
     const peer = this.peers.get(peerId);
     if (!peer) return;
 
@@ -325,5 +335,10 @@ export class Agent {
     } else {
       peer.trust.location = Math.min(1.0, peer.trust.location + 0.05);
     }
+  }
+
+  // To be overridden by subclasses (e.g. Rover)
+  protected onTaskAssigned(taskId: string, pos: { x: number; y: number; z: number }) {
+      console.log(`[${this.id}] 🎯 I WON THE AUCTION for ${taskId}! Preparing mission...`);
   }
 }

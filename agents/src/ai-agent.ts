@@ -17,9 +17,13 @@ export class AIAgent extends Agent {
     this.physicalPos = { x: 0, y: 0, z: 100 }; 
     
     // Listen to all detections
-    this.client.on('connect', () => {
+    const sub = () => {
       this.client.subscribe('swarm/detection/#');
-    });
+      console.log(`[${this.id}] 🧠 Listening for swarm detections...`);
+    };
+
+    if (this.client.connected) sub();
+    else this.client.on('connect', sub);
 
     this.client.on('message', (topic, message) => {
       if (topic.startsWith('swarm/detection/')) {
@@ -46,6 +50,15 @@ export class AIAgent extends Agent {
       threat.detectedBy.push(id);
       threat.confidence = threat.detectedBy.length / 5; // Confidence grows with consensus
       console.log(`[${this.id}] 🧠 THREAT VERIFIED at (${cellId}) | Consensus: ${threat.confidence * 100}%`);
+
+      // NEW: Trigger Auction if 2+ agents agree (40% confidence)
+      if (threat.confidence >= 0.4) {
+          this.client.publish('swarm/task/verified', JSON.stringify({
+              taskId: `task-${cellId}`,
+              pos: pos,
+              type: 'INTERCEPT'
+          }));
+      }
     }
   }
 
