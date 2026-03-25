@@ -13,7 +13,9 @@
     "sim-sweep": "tsx src/sim-sweep-rescue.ts",
     "sim-relay": "npx tsx src/sim-dead-relay.ts",
     "sim-blindeye": "npx tsx src/sim-blind-eye.ts",
-    "sim-ultimate": "npx tsx src/sim-ultimate.ts"
+    "sim-ultimate": "npx tsx src/sim-ultimate.ts",
+    "sim-handshake": "npx tsx src/sim-handshake.ts",
+    "sim-sar": "npx tsx src/sim-sar-ultimate.ts"
   },
   "keywords": [],
   "author": "",

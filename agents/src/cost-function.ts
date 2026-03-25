@@ -20,11 +20,23 @@ export class CostFunction {
     if (state.health === 'RELAY-ONLY') healthTax = 500;
     if (state.health === 'DEAD') healthTax = 10000;
 
-    // 3. Role Bonus
-    // Rovers are ground-optimal (-25 bonus); Drones should stay as relays (+100 penalty)
-    let roleBonus = state.type === 'rover' ? -25 : 100;
+    // 3. 3D Tactical Priority
+    const isAerial = target.z > 2.0;
+    let rolePenalty = 0;
 
-    const totalCost = distance + batteryComponent + healthTax + roleBonus;
+    if (isAerial) {
+      // Drones are much better for aerial targets
+      rolePenalty = state.type === 'drone' ? 0 : 800; 
+    } else {
+      // Rovers are better for ground targets
+      // Drones should NEVER bid for ground-based rescue if rovers are available
+      rolePenalty = state.type === 'rover' ? 0 : 99999; 
+    }
+
+    // 4. Mission Status Tax (Don't double-book agents!)
+    const busyTax = state.isBusy ? 2000 : 0;
+
+    const totalCost = distance + batteryComponent + healthTax + rolePenalty + busyTax;
     return Math.round(totalCost * 10) / 10;
   }
 }

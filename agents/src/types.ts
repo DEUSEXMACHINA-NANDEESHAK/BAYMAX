@@ -16,6 +16,8 @@ export interface AgentState {
   duties: string[];
   timestamp: number;
   trust: TrustScore;
+  isBusy: boolean;
+  carryingTaskId?: string;
 }
 
 export interface SystemHealth {

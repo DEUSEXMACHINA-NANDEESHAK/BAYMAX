@@ -9,7 +9,7 @@ import type {
 export class Agent {
   id: string;
   type: AgentType;
-  protected client: MqttClient;
+  public client: MqttClient;
   public state: AgentState;
   protected systemHealth: SystemHealth;
   protected peers: Map<string, AgentState> = new Map();
@@ -24,9 +24,26 @@ export class Agent {
   public physicalPos: { x: number; y: number; z: number };
   protected actualPeers: Map<string, { x: number; y: number; z: number }> = new Map();
 
+  private static readonly BIRD_NAMES = [
+    'HAWK', 'FALCON', 'EAGLE', 'OWL', 'VULTURE', 'SPARROW', 'PIGEON', 'CHICKEN', 
+    'RAVEN', 'SWIFT', 'KESTREL', 'OSPREY', 'PHOENIX', 'CONDOR', 'ROBIN', 'FLAMINGO'
+  ];
+  private static readonly LAND_ANIMALS = [
+    'WOLF', 'LION', 'TIGER', 'PANTHER', 'BEAR', 'JAGUAR', 'BULL', 'ELEPHANT', 
+    'FOX', 'VIPER', 'RHINO', 'COYOTE', 'WOLVERINE', 'STALLION', 'MAMMOTH', 'TITAN'
+  ];
+
+  private knownTasks: Map<string, { taskId: string, pos: {x:number, y:number, z:number}, winnerId: string, timestamp: number, detectedBy?: string }> = new Map();
+
   constructor(type: AgentType, brokerPort = 1883) {
-    this.id = `${type}-${uuidv4().slice(0, 6)}`;
+    // Better name selection: Pick based on a combination of time and index to avoid immediate collisions
+    const list = type === 'drone' ? Agent.BIRD_NAMES : Agent.LAND_ANIMALS;
+    const variantId = uuidv4().substring(0, 4);
+    const callsign = list[Math.floor(Math.random() * list.length)];
+    this.id = `${type}-${callsign}-${variantId}`;
     this.type = type;
+    
+    console.log(`[SYSTEM] 🟢 Deploying ${type.toUpperCase()}... Callsign: ${callsign} | Ref: ${variantId}`);
     const startX = Math.random() * 20;
     const startY = Math.random() * 20;
     const startZ = type === 'drone' ? (5 + Math.random() * 5) : 0; // Drones start in air, rovers on ground
@@ -35,16 +52,17 @@ export class Agent {
     this.state = {
       id: this.id,
       type,
-      pos: { x: startX, y: startY, z: startZ },
-      battery: 90,
+      pos: { ...this.physicalPos },
+      battery: 100,
       health: 'FULL',
       duties: this.getDefaultDuties(type),
       timestamp: Date.now(),
       trust: {
-        location: 1.0, // Start with full trust
+        location: 1.0,
         relay: 1.0,
         method: 'self-reported'
-      }
+      },
+      isBusy: false
     };
 
 
@@ -80,6 +98,15 @@ export class Agent {
     });
 
 
+    // Mission Guardian: Track resolved auctions
+    this.taskEngine.on('task-resolved', (data) => {
+      this.knownTasks.set(data.taskId, { 
+        ...data, 
+        timestamp: Date.now() // Initial heartbeat for the mission
+      });
+      console.log(`[${this.id}] 🛡️ MISSION TRACKING: ${data.taskId} | Winner: ${data.winnerId}`);
+    });
+
     this.client.on('error', (err) => {
       console.error(`[${this.id}] MQTT Error:`, err.message);
     });
@@ -90,6 +117,15 @@ export class Agent {
 
     this.client.on('message', (topic, payload) => {
       this.onMessage(topic, payload.toString());
+    });
+
+    this.taskEngine.on('task-resolved', ({ taskId, winnerId }) => {
+      // Update our mission registry so we know who is supposed to be doing what
+      const task = this.knownTasks.get(taskId);
+      if (task) {
+        task.winnerId = winnerId;
+        console.log(`[${this.id}] 🤝 MISSION REGISTRY: ${taskId.slice(-4)} assigned to ${winnerId}`);
+      }
     });
   }
 
@@ -141,6 +177,7 @@ export class Agent {
   public publishState() {
     if (this.isFrozen) return;
     this.state.timestamp = Date.now();
+    this.state.isBusy = this.getBusyStatus();
     this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
     
     if (!this.isDigital) {
@@ -148,7 +185,17 @@ export class Agent {
     }
   }
 
-  // To be overridden by subclasses
+  // Returns the ground height at a given (x,y) coordinating with the 3D dashboard
+  public getTerrainHeight(x: number, y: number): number {
+    const lx = x - 25;
+    const ly = y - 30;
+    return Math.sin(lx * 0.1) * Math.cos(ly * 0.1) * 3 + Math.sin(lx * 0.05) * 1.5;
+  }
+
+  protected getBusyStatus(): boolean {
+    return false;
+  }
+
   protected update() {
     if (this.isFrozen) return;
   }
@@ -176,7 +223,61 @@ export class Agent {
           );
         }
       });
-    }, 500);
+      // 3. Mission Guardian: Detect dead rescuers or vanished winners
+      this.knownTasks.forEach((task, taskId) => {
+        const winner = this.peers.get(task.winnerId);
+        
+        // If winner is explicitly DEAD OR if winner has vanished from the mesh (stale/disconnected)
+        // We use a 15s grace period for mesh instability
+        const isOrphaned = (winner && winner.health === 'DEAD') || 
+                           (!winner && task.winnerId !== this.id && (Date.now() - task.timestamp > 20000));
+
+        if (isOrphaned) {
+            // We found an orphaned mission. The 'Lowest ID living Drone' will take the lead.
+            const livingDrones = Array.from(this.peers.values())
+              .filter(p => p.type === 'drone' && p.health !== 'DEAD')
+              .concat(this.type === 'drone' && this.state.health !== 'DEAD' ? [this.state] : []);
+            
+            livingDrones.sort((a, b) => a.id.localeCompare(b.id));
+
+            if (livingDrones[0]?.id === this.id) {
+              console.log(`[${this.id}] 🛡️  MISSION GUARDIAN: Orphaned task detected (${taskId}). Re-broadcasting...`);
+              this.client.publish('swarm/task/verified', JSON.stringify({
+                ...task,
+                type: 'RESCUE_NEEDED',
+                timestamp: Date.now(),
+                guardian: this.id // Note that this is a recovery broadcast
+              }));
+              this.knownTasks.delete(taskId);
+            }
+        }
+      });
+
+      // 4. Dropped Payload Guardian: Detect if a dead agent was carrying a victim
+      this.peers.forEach((peer, peerId) => {
+        const carries = (peer as any).carryingTaskId;
+        if (peer.health === 'DEAD' && carries) {
+           // We found a dropped payload! Only the 'Lowest ID living Drone' re-advertises.
+           const livingDrones = Array.from(this.peers.values())
+             .filter(p => p.type === 'drone' && p.health !== 'DEAD')
+             .concat(this.type === 'drone' && this.state.health !== 'DEAD' ? [this.state] : []);
+           
+           livingDrones.sort((a, b) => a.id.localeCompare(b.id));
+
+           if (livingDrones[0]?.id === this.id) {
+             console.log(`[${this.id}] 🛡️  DROPPED PAYLOAD DETECTED: Task ${carries} dropped by ${peerId}. Re-dispatching to (${peer.pos.x.toFixed(1)}, ${peer.pos.y.toFixed(1)})`);
+             this.client.publish('swarm/task/verified', JSON.stringify({
+               taskId: carries,
+               pos: peer.pos, // Use the drop location!
+               type: 'RESCUE_NEEDED',
+               timestamp: Date.now()
+             }));
+             // Clear the carry status locally to prevent multiple re-broadcasts
+             delete (peer as any).carryingTaskId;
+           }
+        }
+      });
+    }, 1000); // 1s check is enough for robustness
   }
 
 
@@ -189,9 +290,15 @@ export class Agent {
         this.verifyPeer(peer.id);
       }
     }
-    if (topic.startsWith('swarm/events/dead/')) {
+     if (topic.startsWith('swarm/events/dead/')) {
       const event = JSON.parse(payload);
-      console.log(`[${this.id}] 📢 SWARM EVENT: Agent ${event.deadAgent} (${event.type}) is officially DEAD (detected by ${event.detectedBy})`);
+      console.log(`[${this.id}] 📢 SWARM EVENT: Agent ${event.deadAgent} (${event.type}) is officially DEAD`);
+      
+      // Update local peer registry immediately to trigger Mission Guardian
+      const peer = this.peers.get(event.deadAgent);
+      if (peer) {
+        peer.health = 'DEAD';
+      }
     }
     if (topic.startsWith('swarm/events/trust/')) {
       const event = JSON.parse(payload);
@@ -228,12 +335,42 @@ export class Agent {
     // Task Negotiation 
     if (topic.startsWith('swarm/task/verified')) {
         const task = JSON.parse(payload);
-        this.taskEngine.handleTask(task.taskId, task.pos, this.state);
+        
+        // Always track in knownTasks so the Mission Guardian can monitor for failure
+        this.knownTasks.set(task.taskId, { ...task, winnerId: 'pending' });
+
+        
+        // Strict Role-Based Bidding:
+        // Drones (Birds) only bid for Scouting/Detection.
+        // Rovers (Land Animals) only bid for Rescue/Interception.
+        const isRescueTask = task.type === 'RESCUE_NEEDED' || task.type === 'RESCUE_NEEDED_RETRY';
+        const canBid = (this.type === 'rover' && isRescueTask) || 
+                       (this.type === 'drone' && !isRescueTask);
+
+        // CRITICAL: Busy agents MUST NOT BID — ensures decentralized load distribution
+        // A rover already carrying a victim cannot take another mission.
+        // This prevents a single rover from monopolising all targets.
+        const alreadyBusy = this.getBusyStatus();
+        if (alreadyBusy) {
+            console.log(`[${this.id}] ⏸  BUSY — skipping bid for ${task.taskId} (decentralized load balance)`);
+            return;
+        }
+
+        if (canBid) {
+            this.taskEngine.handleTask(task.taskId, task.pos, this.state);
+        } else {
+            console.log(`[${this.id}] 🛰️  ROLE FILTER: Task ${task.taskId} not in ${this.type} duties.`);
+        }
     }
     if (topic.startsWith('swarm/task/bid/')) {
         const bid = JSON.parse(payload);
         const taskId = topic.split('/')[3] || 'unknown';
         this.taskEngine.collectBid(taskId, bid);
+    }
+    if (topic === 'swarm/task/completed') {
+        const data = JSON.parse(payload);
+        this.knownTasks.delete(data.taskId);
+        console.log(`[${this.id}] 🏁 MISSION COMPLETED: Registry cleared for ${data.taskId}`);
     }
   }
 
@@ -269,7 +406,10 @@ export class Agent {
   public selfDiagnose() {
     const prevHealth = this.state.health;
 
-    if (!this.systemHealth.gps) {
+    if (!this.systemHealth.battery_sensor || !this.systemHealth.radio) {
+      this.state.health = 'DEAD';
+      this.freeze();
+    } else if (!this.systemHealth.gps) {
       this.state.health = 'DEGRADED-L';
       this.state.duties = this.getDefaultDuties(this.type).filter(d => d !== 'location');
     } else {

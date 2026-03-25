@@ -15,6 +15,8 @@ export interface SwarmTask {
   pos: { x: number; y: number; z: number };
   type: string;
   winnerId?: string;
+  detectedBy?: string;
+  guardian?: string;
 }
 
 export interface SwarmEvent {
@@ -29,6 +31,13 @@ export interface SimStatus {
   message: string;
 }
 
+export interface MeshHealth {
+  alive: number;
+  total: number;
+  latency: number;
+  timestamp: number;
+}
+
 // ── SINGLETON GUARD ──────────────────────────────────────────────────────────
 // Prevents double-initialization even if React re-runs the effect.
 let globalClient: any = null;
@@ -39,6 +48,8 @@ export function useSwarm() {
   const [events, setEvents] = useState<SwarmEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [simStatus, setSimStatus] = useState<SimStatus | null>(null);
+  const [meshHealth, setMeshHealth] = useState<MeshHealth | null>(null);
+  const [droneQuadrants, setDroneQuadrants] = useState<Map<string, number>>(new Map());
   const mqttRef = useRef<any>(null);
   const initRef = useRef(false);
 
@@ -88,10 +99,14 @@ export function useSwarm() {
         'swarm/state/#',
         'swarm/health/#',
         'swarm/task/verified',
+        'swarm/task/unconfirmed',
         'swarm/task/bid/#',
+        'swarm/task/completed',
         'swarm/events/#',
         'swarm/proof/#',
-        'swarm/sim/status'
+        'swarm/sim/status',
+        'swarm/mesh/health',
+        'swarm/drone/quadrant'
       ]);
       addEvent('TACTICAL LINK ESTABLISHED', 'success');
     });
@@ -125,15 +140,35 @@ export function useSwarm() {
             next.set(data.id, data as AgentState);
             return next;
           });
+          // Optional: Add sync pulsars here? No, keep it clean.
         }
 
         if (topic === 'swarm/task/verified') {
           setTasks(prev => {
             const next = new Map(prev);
-            next.set(data.taskId, data as SwarmTask);
+            next.set(data.taskId, { ...data, status: 'verified' } as any);
             return next;
           });
-          addEvent(`THREAT @ (${data.pos.x.toFixed(0)}, ${data.pos.y.toFixed(0)})`, 'danger');
+          const source = data.detectedBy ? `[SENSE: ${data.detectedBy}]` : data.guardian ? `[RECOVERY: ${data.guardian}]` : '[COMMAND]';
+          addEvent(`${source} 🛡️ THREAT CONFIRMED at (${data.pos.x.toFixed(0)}, ${data.pos.y.toFixed(0)})`, 'danger');
+        }
+
+        if (topic === 'swarm/task/unconfirmed') {
+          setTasks(prev => {
+            const next = new Map(prev);
+            next.set(data.taskId, { ...data, status: 'unconfirmed' } as any);
+            return next;
+          });
+          addEvent(`[MQTT] 🕵️ UNCONFIRMED POS - Awaiting Aerial Scan...`, 'warning');
+        }
+
+        if (topic === 'swarm/task/completed') {
+          setTasks(prev => {
+            const next = new Map(prev);
+            next.delete(data.taskId);
+            return next;
+          });
+          addEvent(`[P2P] ✅ MISSION SUCCESS: ${data.taskId} delivered!`, 'success');
         }
 
         if (topic.startsWith('swarm/events/dead/')) {
@@ -148,15 +183,32 @@ export function useSwarm() {
         }
 
         if (topic.startsWith('swarm/task/bid/')) {
-          addEvent(`BID by ${data.agentId || '?'}`, 'info');
+          addEvent(`[P2P] 🗳️ BID: ${data.agentId} cost ${data.cost?.toFixed(2) || '?' } for ${topic.split('/').pop()}`, 'info');
         }
-
+    
         if (topic === 'swarm/proof/consensus') {
-          addEvent(`CONSENSUS: ${data.swarmSize} nodes`, 'success');
+           addEvent(`[MESH] 🛡️ CONSENSUS: ${data.swarmSize} nodes synced in ${data.latency || '?'}ms`, 'success');
         }
 
         if (topic === 'swarm/sim/status') {
           setSimStatus(data as SimStatus);
+        }
+
+        if (topic === 'swarm/mesh/health') {
+          setMeshHealth(data as MeshHealth);
+          addEvent(`[MESH] ⚡ ${data.alive}/${data.total} nodes | Latency: ${data.latency}ms`, 'success');
+        }
+
+        if (topic === 'swarm/drone/quadrant') {
+          setDroneQuadrants(prev => {
+            const next = new Map(prev);
+            next.set(data.agentId, data.quadrant);
+            return next;
+          });
+        }
+
+        if (topic === 'swarm/events/relay') {
+          addEvent(`[RELAY] ⚠️ ${data.agentId} switching to RELAY MODE (low battery)`, 'warning');
         }
 
       } catch (e) {
@@ -181,6 +233,8 @@ export function useSwarm() {
     events,
     connected,
     simStatus,
+    meshHealth,
+    droneQuadrants,
     sendCommand,
   };
 }

@@ -25,8 +25,12 @@ export class TaskEngine extends EventEmitter {
    * Window: 250ms for sub-500ms decision making.
    */
   public handleTask(taskId: string, targetPos: { x: number; y: number; z: number }, state: AgentState) {
-    if (this.activeTasks.has(taskId)) return;
+    // If it's a known active task, check if we need to force a re-auction
+    // (In a real swarm, we might use a version/timestamp check here)
     this.activeTasks.add(taskId);
+    
+    // Clear previous bids for this task to allow fresh negotiation
+    this.bids.delete(taskId);
 
     // 1. Calculate and publish local bid
     const cost = CostFunction.calculate(state, targetPos);
@@ -75,6 +79,9 @@ export class TaskEngine extends EventEmitter {
 
     console.log(`[TaskEngine] 🏛️  AUCTION RESOLVED | Task: ${taskId.slice(-4)} | Winner: ${winner.agentId} | Time: ${delta}ms`);
     
+    // Notify the Agent of the global result
+    this.emit('task-resolved', { taskId, winnerId: winner.agentId, pos: targetPos });
+
     // Emit event if we won
     if (winner.agentId === this.agentId) {
       this.emit('task-assigned', { taskId, pos: targetPos });

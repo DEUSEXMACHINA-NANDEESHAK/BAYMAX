@@ -55,3 +55,145 @@ SCENARIO FLOW:
 5. Mid-mission: Drone-03 dies → swarm/recovery/needed/drone-03
 6. Remaining drones re-cover sector
 7. FAULT signal → all freeze in <100ms
+
+
+🏁 Warm Up: The Stateful Handshake
+Prove your P2P connection with discovery, heartbeats, and shared state.
+Before you build a massive autonomous fleet, you need to prove the fundamentals of peer-to-peer coordination. This warm-up moves beyond a simple "ping" and allows you to prove that two agents can discover each other, stay in sync, and recover from failure. This warm‑up should take less than an hour for most developers.
+
+What participants do:
+
+Spin up: Launch two Vertex nodes (Agent A and Agent B) in local terminal windows or simulation containers.
+Discover & Handshake: Nodes find each other via Vertex P2P discovery. Establish a session/channel and exchange a signed “hello” payload.
+Pulse Check: Send periodic heartbeats both ways to keep the connection alive.
+Sync State: Maintain a tiny replicated JSON state across both nodes containing:
+peer_id
+last_seen_ms
+role (e.g., scout / carrier)
+status (e.g., ready / busy)
+Trigger Action: Agent A toggles its role to "scout." Agent B must acknowledge and mirror this state change in <1 second.
+Acceptance Criteria:
+
+Proof artifact: A short screen recording or terminal log snippet showing:
+
+Successful discovery, handshake, and active heartbeats (30–60 seconds).
+State replication from Agent A to Agent B.
+Failure Injection: Kill one node for 10 seconds to prove the peer is marked "stale," then bring it back online to show the connection and state automatically resuming.
+
+Warm Up Reward: Drop your proof into the Discord #shipping-log channel to claim your "Stateful Handshake" community badge and unlock your environment for the main tracks!
+
+Github Guide Link: https://github.com/tashigit/vertex-hackathon-guide
+
+For your chance to win the daily bounty, please share your Stateful Handshakes here: https://discord.com/channels/1011889557526032464/1483341393052176526
+
+👻 Track 1 | Ghost in the Machine (Open Track)
+Exploring New Frontiers in Decentralized Swarm Coordination
+This track is for teams applying Vertex’s peer-to-peer coordination model to novel, domain-specific, or highly creative multi-agent systems. Your objective is to demonstrate direct coordination between multiple heterogeneous agents, whether they are physical robots, drones, or purely digital AI agents.
+
+Teams are completely free to define their own use case, provided it showcases peer discovery, state sharing, and coordinated decision-making without a central broker.
+
+While hybrid (Cloud + Edge) setups are permitted, submissions that demonstrate continued operation during partial failures, degraded connectivity, or a complete loss of centralized cloud services will score significantly higher for technical robustness.
+
+Example Scenarios
+Cooperative Perception (Shared Awareness): 3 to 5 simulated rovers navigating a space. When Rover A detects a blocked path, it shares the state peer-to-peer, allowing Rover B to instantly reroute before it ever encounters the obstacle itself.
+Collective Decision-Making: 10+ heterogeneous agents (e.g., a mix of aerial drones, ground rovers, and digital AI agents) with varying, sometimes conflicting local sensor inputs. Use Vertex to allow the swarm to reach a single, unified BFT consensus on a target location or threat level without relying on a central server.
+Decentralized Airspace Control (DAC): Instead of relying on a centralized Air Traffic Control (ATC) tower or cloud orchestrator, build a system where multiple drones negotiate flight corridors, manage intersections, and resolve trajectory conflicts in real-time using the Vertex P2P mesh.
+Smart Warehousing: 3-10 AMRs and AGVs, including a mix of legacy and modern systems, coordinating tasks and avoiding congestion through peer-to-peer negotiation.
+Safety Mechanisms: Build a low-latency, peer-to-peer safety mechanism using Vertex’s Rust crate, demonstrating how a fault detected by one node triggers a coordinated safe-state transition across an entire swarm.
+Judging Criteria (How to Win)
+
+Innovation & Novelty: How creatively did you apply the Vertex P2P model to a unique multi-agent problem?
+Decentralized Logic: The swarm must demonstrate state sharing and coordination without a central broker.
+Robustness: Does the system continue to operate (even in a degraded state) during partial network failures or loss of cloud services?
+Developer Clarity: A clean, reproducible repository with a clear demonstration of the coordination logic.
+Github Guide Link: https://github.com/tashigit/vertex-hackathon-guide
+
+Please ping here when you've submitted a BUIDL: https://discord.com/channels/1011889557526032464/1483341393052176526
+
+🛰️ Track 2 | Search & Rescue Swarms
+Coordinating Multi-Drone Missions in Blackout Environments
+Design and demonstrate a multi-drone that can discover peers, share state, and coordinate search-and-rescue behaviors in environments where network connectivity is unreliable or completely unavailable.
+
+The Challenge
+Teams must use Vertex 2.0 to coordinate a swarm of at least 5 simulated drones and/or robots, potentially from different vendors or configurations, operating in a communications-degraded or blackout scenario. The swarm should demonstrate coordinated behaviors such as area exploration, target discovery, task allocation, or role hand-off without relying on centralized cloud services.
+
+Implementations should be demonstrated in a simulation environment such as Webots. Critical Note: The focus is strictly on peer‑to‑peer coordination logic, not perception accuracy, mapping quality, or SLAM performance. Use mocked sensor data if it helps you focus on the mesh networking.
+
+
+
+The Tashi Integration Pillars:
+
+Mesh Resilience (Vertex 2.0): Prove that your local swarm can maintain BFT consensus and auto-discover peers even when synthetic packet loss and high latency are introduced to the simulation.
+Distributed State (FoxMQ): Maintain a shared "world map" or "searched grid" across the fleet securely. If one rover goes offline, its previously mapped data must survive within the swarm's collective memory.
+Example Scenarios to Get You Started:
+
+The Dynamic Daisy Chain: A fleet of drones enters a collapsed tunnel. As they push deeper, radio signals to the entrance degrade. The swarm must autonomously assign specific drones to halt and act as P2P network relays, ensuring the lead explorer can always pass state back down the chain.
+The "Fallen Comrade" (Role Reallocation): 5 rovers are assigned distinct search grid sectors. You deliberately "kill" Rover B (simulating a dead battery or trap). The mesh must instantly detect the dropped heartbeat and automatically re-negotiate Rover B's unsearched territory among the remaining 4 rovers.
+The Blind Handoff (Air-to-Ground): A fast-moving aerial drone conducts a coarse sweep and detects a "victim" (mocked data). Because the drone has a low battery, it uses Vertex to broadcast the coordinates and negotiate a hand-off to the nearest heavy ground rover to complete the rescue, all while completely disconnected from the cloud.
+Judging Criteria (How to Win)
+Mesh Survival: Peer discovery and swarm formation under severe network constraints
+Decentralized Logic: State sharing and coordination without centralized control. (Zero reliance on a single ROS master node).
+Robustness: Graceful degradation and recovery in the face of latency, packet loss, or node dropouts.
+Developer Clarity: Clarity and correctness of coordination logic, alongside a reproducible simulation environment.
+Github Link
+
+Please ping here when you've submitted a BUIDL: #vertex-hackathon Channel
+
+🧠 Track 3 | Agent Economy (AI Agentic Coordination Layer)
+Building Leaderless Coordination for AI Agents at Machine Speed
+Today’s infrastructure was built for humans (seconds, DNS, centralized REST APIs). The future belongs to autonomous AI agents (milliseconds, peer-to-peer discovery, BFT consensus).
+
+This track is about building the missing layer: Remove the "Master Orchestrator" and let agents discover each other, negotiate work, execute it, and prove what happened,  all without a central brain.
+
+The Challenge
+
+Build an Agent Coordination Layer using Tashi primitives so that multiple agents can:
+
+Discover & Form: Create temporary, ad-hoc swarms for specific mission-sets.
+Negotiate & Commit: Use leaderless agreement to solve task allocation, pricing, and resource limits.
+Execute & Prove: Pass state via secure decentralized messaging and produce a verifiable record of "who did what and when."
+Minimum demo: At least 3 agents completing a full negotiate → commit → execute → verify loop.
+
+The Tashi Integration Pillars:
+
+Build agents in JS or Python using FoxMQ, which leverages Vertex under the hood. 
+For builders who want more granular control, you can build in Rust or C using the Vertex library directly.
+The AI Agent Playbook:
+
+Bring Your Own Agents: Vibe-code, create, or integrate existing agents using standard frameworks. Simply replace their centralized orchestrator with FoxMQ or Vertex depending on your language choice.
+Implement Core Swarm Features: Focus on one or a combination of the following:
+Task Bidding: Agents negotiate terms to prevent "front-running" or redundant work.
+Hive Memory: Agents pass intermediate state securely, maintaining a synchronized "world view" without a central database.
+Verification: Produce a multi-signed Proof of Coordination validating the exact order of events.
+Example Scenarios to Get You Started:
+
+The Decentralized Agent Marketplace (A2A Bidding): A user submits a complex prompt (e.g., "Write and deploy a full-stack app").
+Swarm Threat Intelligence (Consensus Validation): A mesh of cybersecurity AI agents monitor network nodes.
+Distributed RAG (Hive Memory): Multiple research agents scrape different sectors of the web simultaneously.
+Decentralized Compute Marketplace: Agents advertise idle GPU/CPU cycles via Vertex state.
+Judging Criteria (How to Win)
+
+Coordination Correctness: no double assignments, deterministic resolution under contention.
+Resilience: The swarm continues to operate gracefully when nodes drop or messages are delayed.
+Auditability: A clear, complete, and verifiable Proof of Coordination. The goal is auditability, not blockchain theater.
+Security Posture: Evidence of message integrity and resistance to replay attacks.
+Developer clarity: runnable repo, clear demo flow, observability.
+Github Link
+
+Please ping here when you've submitted a BUIDL: https://discord.com/channels/1011889557526032464/1483341393052176526
+
+This is the Hackathon Just In case we ARE EANDERING OFF POINT..!
+
+PAY CLOSE ATTENTION TO All the Details
+So can We first DO A MOCK UP SUBMISSION..THAT FALLS INTO THE CRITERIA.
+MUST BE THE BEST ONE FOR MOCK, WE CAN BUILD SOME UI TO DEMONSTRATE FIRST..
+
+THE CURRENT ONE IS SEARCH AND RESCUE..!
+LET US OPT FOR TRACK-2 And we shall Address This Later..!
+
+Let us Do that one BuidL Submission..for A warmUp Submission..!
+With all the required operating requirements..!
+I want you to think of something extra upon that too...!
+Once Done We can Then Start the Simulation.
+Let us keep the final project on Hold for now..!We'll Address that later.
+FOCUS ON DEMONSTRATING THE REQUIREMENTS(LIKE SHARED JSON STATE ACROSS THE  NODES..!, TRIGGER ACTION IN LESS THAN ONE Second..!)
