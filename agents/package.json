@@ -1,0 +1,34 @@
+{
+  "name": "agents",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test-two": "tsx src/test-two-agents.ts",
+    "rover-only": "tsx src/rover-only.ts",
+    "specialized-swarm": "tsx src/test-specialized-swarm.ts",
+    "ai-agent": "tsx src/ai-agent.ts",
+    "test-auction": "tsx src/test-task-auction.ts",
+    "sim-sweep": "tsx src/sim-sweep-rescue.ts",
+    "sim-relay": "npx tsx src/sim-dead-relay.ts",
+    "sim-blindeye": "npx tsx src/sim-blind-eye.ts",
+    "sim-ultimate": "npx tsx src/sim-ultimate.ts",
+    "sim-handshake": "npx tsx src/sim-handshake.ts",
+    "sim-sar": "npx tsx src/sim-sar-ultimate.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mqtt": "^5.15.0",
+    "uuid": "^13.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

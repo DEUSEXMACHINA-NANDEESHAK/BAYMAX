@@ -1,0 +1,202 @@
+﻿=== FOXMQ FULL CLI DOCUMENTATION ===
+Generated: 03/25/2026 00:24:35
+
+--- MAIN HELP ---
+A decentralized message queue powered by the Tashi Consensus Engine
+
+Usage: foxmq.exe <COMMAND>
+
+Commands:
+  run           Start the message broker and connect to a FoxMQ cluster
+  address-book  Generate an address book file and set of private keys for a FoxMQ session
+  user          Manage user credentials for connecting to the message broker protocol
+  help          Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+
+--- RUN SUBCOMMAND HELP ---
+Start the message broker and connect to a FoxMQ cluster
+
+Usage: foxmq.exe run [OPTIONS] [CONFIG_DIR]
+
+Arguments:
+  [CONFIG_DIR]
+          The directory containing `address-book.toml` and (optionally) `users.toml`
+          
+          [default: foxmq.d/]
+
+Options:
+  -l, --log <LOG>
+          Set the format of log output
+          
+          [default: full]
+
+          Possible values:
+          - full:    Emit human-readable single line logs for each event
+          - compact: A variant of full, optimized for shorter line lengths
+          - pretty:  Format events in multi-line very "prettified" form
+          - json:    Emit JSON-lines formatted events
+
+  -L, --mqtt-addr <MQTT_ADDR>
+          The TCP socket address to listen for MQTT (non-TLS) connections from clients
+          
+          [default: 0.0.0.0:1883]
+
+  -C, --cluster-addr <CLUSTER_ADDR>
+          The UDP socket address to listen for cluster connections from other FoxMQ brokers
+          
+          [default: 0.0.0.0:19793]
+
+      --max-keep-alive <MAX_KEEP_ALIVE>
+          Set the maximum Keep Alive interval for MQTT connections, in seconds.
+          
+          A client may specify a nonzero interval smaller than this. This also becomes the default Keep Alive interval if a client does not specify one.
+          
+          Per the specification, the connection times out if the client does not send any MQTT control packet in 1.5x the Keep Alive interval.
+          
+          Set to 0 to allow the client to set any Keep Alive interval, including 0 (no timeout).
+          
+          The maximum value allowed by the MQTT spec is 65,535, or 18 hours, 12 minutes, and 15 seconds.
+          
+          [default: 3600]
+
+      --allow-anonymous-login
+          Allow clients to authenticate without providing user credentials
+
+      --silent-connect-errors
+          If enabled, don't respond if CONNECT handling (including authentication) for a client fails.
+          
+          This can be used to avoid advertising that an MQTT broker is running on the given port, which makes it harder to categorize in a port scanning attack and identify as a potential target.
+          
+          By default, a response is sent to the client detailing the reason why the handshake failed.
+          
+          If enabled, the error is simply logged at DEBUG level and the socket is silently closed.
+
+  -k, --secret-key <SECRET_KEY>
+          Read the P-256 secret key used to identify this broker in the cluster from hex encoded DER.
+          
+          If `--tls-key-file` is not provided and `--mqtts` is enabled, this or `--secret-key-file` will be used by default.
+          
+          [env: SECRET_KEY=]
+
+  -f, --secret-key-file <SECRET_KEY_FILE>
+          Read the PEM-encoded P-256 secret key used to identify this broker in the cluster from a file
+          
+          [env: SECRET_KEY_FILE=]
+
+      --mqtts
+          Enable listening for MQTT-over-TLS connections on a separate socket (0.0.0.0:8883 by default)
+
+      --mqtts-addr <MQTTS_ADDR>
+          The TCP socket address to listen for MQTT-over-TLS (`mmqts`) connections from clients
+          
+          [default: 0.0.0.0:8883]
+
+      --server-name <SERVER_NAME>
+          The domain name to report for Server Name Identification (SNI) in TLS
+          
+          [default: foxmq.local]
+
+      --tls-key-file <TLS_KEY_FILE>
+          Override the secret key used for TLS handshakes.
+          
+          Note: this only applies to MQTT-over-TLS connections (`--mqtts`).
+          
+          Defaults to the main secret key (`--secret-key`/`--secret-key-file`).
+
+      --tls-cert-file <TLS_CERT_FILE>
+          Path to the X.509 certificate to use for TLS.
+          
+          Note: this only applies to MQTT-over-TLS connections  (`--mqtts`).
+          
+          Defaults to a certificate self-signed with either `--tls-key-file` or the main secret key (`--secret-key`/`--secret-key-file`).
+
+      --websockets
+          Enable listening for MQTT-over-Websockets connections on a separate socket (0.0.0.0:8080 by default)
+
+      --websockets-addr <WEBSOCKETS_ADDR>
+          The TCP socket address to listen for MQTT-over-Websockets (`ws`) connections from clients
+          
+          [default: 0.0.0.0:8080]
+
+      --cluster-cert <CLUSTER_CERT>
+          Path to a TLS certificate or certificate chain file to present to peers on new cluster connections.
+          
+          If not set, a self-signed TLS certificate is generated on startup.
+          
+          If set, the certificate _must_ match the secret key specified by `--secret-key` or `--secret-key-path`.
+          
+          [env: CLUSTER_CERT=]
+
+      --cluster-root-cert <CLUSTER_ROOT_CERT>
+          Path to a TLS root certificate file to use for cluster operations.
+          
+          If set, all peers must present a valid TLS certificate chain that ends with this certificate.
+          
+          [env: CLUSTER_ROOT_CERT=]
+
+      --cluster-accept-peer-with-cert
+          If set, admit any peer to the cluster that connects with a valid TLS certificate.
+          
+          This allows peers to connect even if they aren't in the initial address book.
+          
+          A valid certificate is any certificate chain that ends with the certificate specified by `--cluster-root-cert`.
+          
+          [env: CLUSTER_ACCEPT_PEER_WITH_CERT=]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+--- USER SUBCOMMAND HELP ---
+Manage user credentials for connecting to the message broker protocol
+
+Usage: foxmq.exe user <COMMAND>
+
+Commands:
+  add       Add a user record to the credentials file, creating it if it doesn't exist
+  generate  Generate a user record and return it on stdout
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+
+--- ADDRESS-BOOK SUBCOMMAND HELP ---
+Generate an address book file and set of private keys for a FoxMQ session.
+
+The command takes as an input some set of socket addresses, either from a given list (`from-list`) or enumerated from a base address and range of ports (`from-range`).
+
+The resulting address book will be written to the given output directory as `address-book.toml`.
+
+Additionally, secret keys will be generated for each address in the set as `key_N.pem`, where N is the zero-based index in the set. Comments are added to the `address-book.toml` to disambiguate.
+
+Usage: foxmq.exe address-book <COMMAND>
+
+Commands:
+  from-list   Generate the address book from a list of predetermined socket addresses
+  from-range  Generate the address book from a base IP address and a range of ports
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+--- VERSION INFO ---
+.\foxmq.exe : error: unexpected argument '--version' found
+At C:\Users\NANDEESHA.K\Documents\BAYMAX\foxmq-cluster\get-foxmq-docs.ps1
+:25 char:13
++ $output += (.\foxmq.exe --version 2>&1 | Out-String)
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (error: unexpect...-version' 
+    found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Usage: foxmq.exe <COMMAND>
+
+For more information, try '--help'.
+
