@@ -32,8 +32,19 @@ function AgentNode({ agent }: { agent: AgentState }) {
   useFrame((state) => {
     if (meshRef.current && !isDead) {
       meshRef.current.rotation.y += isDrone ? 0.03 : 0.01;
-      const pulse = Math.sin(state.clock.elapsedTime * 2 + agent.pos.x) * 0.1 + 1;
-      if (glowRef.current) glowRef.current.scale.setScalar(pulse);
+      
+      // If draining, pulse red at high frequency
+      const pulseSpeed = agent.isDraining ? 10 : 2;
+      const pulseBase = Math.sin(state.clock.elapsedTime * pulseSpeed + agent.pos.x) * 0.1 + 1;
+      
+      if (glowRef.current) {
+        glowRef.current.scale.setScalar(pulseBase);
+        if (agent.isDraining) {
+          (glowRef.current.material as THREE.MeshStandardMaterial).color.set('#ff003c');
+          (glowRef.current.material as THREE.MeshStandardMaterial).emissive.set('#ff003c');
+          (glowRef.current.material as THREE.MeshStandardMaterial).opacity = 0.4 + Math.sin(state.clock.elapsedTime * 15) * 0.2;
+        }
+      }
     }
   });
 
@@ -354,13 +365,14 @@ function CoordinateMarkers() {
 }
 
 // ─── 3D SCENE ─────────────────────────────────────────────────────────────────
-function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerLeave }: { 
+function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerLeave, droneQuadrants }: { 
   agents: AgentState[]; 
   tasks: SwarmTask[];
   onPlaceTask: (x: number, y: number) => void;
   ghostPos: [number, number, number] | null;
   onPointerMove: (x: number, y: number, z: number) => void;
   onPointerLeave: () => void;
+  droneQuadrants: Map<string, number>;
 }) {
   return (
     <>
@@ -373,6 +385,7 @@ function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerL
         onPointerLeave={onPointerLeave}
       />
       <CoordinateMarkers />
+      <MapQuadrants droneQuadrants={droneQuadrants} />
       <MeshLinks agents={agents} />
       {agents.map(a => <AgentNode key={a.id} agent={a} />)}
       {tasks.map(t => <ThreatNode key={t.taskId} task={t} agents={agents} />)}
@@ -391,6 +404,73 @@ function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerL
   );
 }
 
+// ─── MAP QUADRANTS (3D visualization of search sectors) ──────────────────────
+function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number> }) {
+  const quadrants = [
+    { id: 1, name: 'Q1', x: 12.5, y: 15,  w: 25, h: 30, color: '#00f3ff' },
+    { id: 2, name: 'Q2', x: 37.5, y: 15,  w: 25, h: 30, color: '#ff00ff' },
+    { id: 3, name: 'Q3', x: 12.5, y: 45,  w: 25, h: 30, color: '#00ff41' },
+    { id: 4, name: 'Q4', x: 37.5, y: 45,  w: 25, h: 30, color: '#ffe100' },
+  ];
+
+  return (
+    <group>
+      {quadrants.map(q => {
+        // Find if any drone owns this specific quadrant (using the new array-based check)
+        const owner = Array.from(droneQuadrants.entries()).find(([, list]) => list.includes(q.id));
+        const callsign = owner ? owner[0].split('-')[1]?.toUpperCase() : null;
+        
+        return (
+          <group key={q.id}>
+            {/* Sector Border/Outline */}
+            <Line
+              points={[
+                [q.x - q.w/2, -1.9, -(q.y - q.h/2)],
+                [q.x + q.w/2, -1.9, -(q.y - q.h/2)],
+                [q.x + q.w/2, -1.9, -(q.y + q.h/2)],
+                [q.x - q.w/2, -1.9, -(q.y + q.h/2)],
+                [q.x - q.w/2, -1.9, -(q.y - q.h/2)],
+              ]}
+              color={q.color}
+              lineWidth={callsign ? 2 : 1}
+              transparent
+              opacity={callsign ? 0.4 : 0.1}
+            />
+            {/* Sector Label */}
+            <Text
+              position={[q.x, -1.8, -q.y]}
+              rotation={[-Math.PI/2, 0, 0]}
+              fontSize={3}
+              color={q.color}
+              anchorX='center'
+              anchorY='middle'
+              transparent
+              opacity={callsign ? 0.15 : 0.05}
+            >
+              {q.name}
+            </Text>
+            {/* Sector Ownership Text */}
+            {callsign && (
+              <Text
+                position={[q.x, -1.7, -q.y + 4]}
+                rotation={[-Math.PI/2, 0, 0]}
+                fontSize={1.2}
+                color={q.color}
+                anchorX='center'
+                anchorY='middle'
+                transparent
+                opacity={0.6}
+              >
+                {callsign}
+              </Text>
+            )}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 // ─── AGENT CARD ───────────────────────────────────────────────────────────────
 function AgentCard({ agent, onKill, onGpsFail, onDrain }: {
   agent: AgentState;
@@ -403,15 +483,20 @@ function AgentCard({ agent, onKill, onGpsFail, onDrain }: {
   const color = isDead ? '#555' : isAI ? '#ff00ff' : agent.type === 'drone' ? '#00f3ff' : '#00ff41';
 
   return (
-    <div className='agent-card' style={{ borderColor: color + '40' }}>
+    <div className={`agent-card ${agent.isDraining ? 'draining-pulse' : ''}`} style={{ borderColor: agent.isDraining ? '#ff003c' : color + '40' }}>
       <div className='card-top'>
-        <span className='agent-id' style={{ color }}>{agent.id}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className='agent-id' style={{ color: agent.isDraining ? '#ff003c' : color }}>{agent.id}</span>
+          {agent.isDraining && <span className='draining-tag'>⚡ DRAINING</span>}
+        </div>
         <span className={`badge ${isDead ? 'dead' : 'alive'}`}>{agent.health}</span>
       </div>
       <div className='card-info'>
         <div className='info-row'>
-          <Battery size={10} style={{ color: agent.battery < 20 ? '#ff003c' : '#aaa' }} />
-          <span>{agent.battery.toFixed(0)}%</span>
+          <Battery size={10} style={{ color: agent.battery < 20 || agent.isDraining ? '#ff003c' : '#aaa' }} />
+          <span style={{ color: agent.isDraining ? '#ff003c' : 'inherit', fontWeight: agent.isDraining ? 'bold' : 'normal' }}>
+            {agent.battery.toFixed(0)}%
+          </span>
         </div>
         <div className='info-row'>
           <span className='type-badge'>{agent.type}</span>
@@ -419,13 +504,26 @@ function AgentCard({ agent, onKill, onGpsFail, onDrain }: {
         <div className='info-row pos'>
           <span>{agent.pos.x.toFixed(1)}, {agent.pos.y.toFixed(1)}</span>
         </div>
+        {agent.brokerPort && (
+          <div className='info-row' style={{ color: '#00f3ff90', fontSize: '9px' }}>
+            <Network size={8} /> <span>Node: {agent.brokerPort}</span>
+          </div>
+        )}
       </div>
       {!isDead && (
         <div className='card-actions'>
           <button onClick={onKill} title='Kill Agent (Test Fallen Comrade)' className='btn-danger'><ZapOff size={12} /></button>
           <button onClick={onGpsFail} title='Inject GPS Failure (Test Degraded Ops)' className='btn-warn'><Cpu size={12} /></button>
           {agent.type === 'drone' && (
-            <button onClick={onDrain} title='Drain Battery (Test Blind Handoff)' className='btn-warn' style={{color:'#ff9900'}}>⚡</button>
+            <button 
+              onClick={onDrain} 
+              title='Drain Battery (Test Blind Handoff)' 
+              className='btn-warn' 
+              style={{color:'#ff9900'}} 
+              disabled={agent.isDraining}
+            >
+              ⚡
+            </button>
           )}
         </div>
       )}
@@ -519,7 +617,7 @@ export default function App() {
     setGhostPos(null);
   };
 
-  const [sideTab, setSideTab] = useState<'swarm'|'feed'|'pillars'>('swarm');
+  const [sideTab, setSideTab] = useState<'swarm' | 'feed' | 'pillars' | 'mesh'>('swarm');
 
   return (
     <div className='layout'>
@@ -542,15 +640,15 @@ export default function App() {
 
         {/* Tab Switcher */}
         <div style={{ display: 'flex', gap: '3px', margin: '8px 0', fontSize: '9px' }}>
-          {(['swarm','feed','pillars'] as const).map(t => (
+          {(['swarm','mesh','feed','pillars'] as const).map(t => (
             <button key={t} onClick={() => setSideTab(t)} style={{
               flex: 1, padding: '5px 2px', borderRadius: '4px', cursor: 'pointer',
               border: `1px solid ${sideTab === t ? '#00f3ff' : '#00f3ff20'}`,
               background: sideTab === t ? '#00f3ff15' : 'transparent',
-              color: sideTab === t ? '#00f3ff' : '#555',
+              color: sideTab === t ? '#00f3ff' : '#00f3ff90',
               fontFamily: 'inherit', letterSpacing: '1px', textTransform: 'uppercase'
             }}>
-              {t === 'swarm' ? '⬡ SWARM' : t === 'feed' ? '🛰️ FEED' : '★ PILLARS'}
+              {t === 'swarm' ? '⬡ SWARM' : t === 'mesh' ? '🔐 MESH' : t === 'feed' ? '🛰️ FEED' : '★ PILLARS'}
             </button>
           ))}
         </div>
@@ -565,7 +663,11 @@ export default function App() {
                 Awaiting swarm heartbeats...
               </div>
             ) : (
-              agents.map(agent => (
+              // SORT: Drones First, then Rovers
+              [...agents].sort((a,b) => {
+                if (a.type === b.type) return a.id.localeCompare(b.id);
+                return a.type === 'drone' ? -1 : 1;
+              }).map(agent => (
                 <AgentCard
                   key={agent.id}
                   agent={agent}
@@ -581,15 +683,46 @@ export default function App() {
         {/* ── TAB: FEED ───────────────────────────── */}
         {sideTab === 'feed' && (<>
           <div className='section-label'><Terminal size={11} /> SECTOR FEED</div>
-          <div className='event-log' style={{ flex: 1 }}>
-            {events.length === 0 ? (
-              <div className='empty-msg'>No events yet...</div>
-            ) : events.map(ev => (
-              <div key={ev.id} className={`event-row ev-${ev.type}`}>
-                <span className='ev-time'>{ev.time}</span>
-                <span className='ev-text'>{ev.text}</span>
-              </div>
-            ))}
+          <div className='event-log' style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+            {events.filter(e => 
+              !e.text.includes('[MESH]') && !e.text.includes('[P2P]') && !e.text.includes('nodes alive') && 
+              !e.text.includes('[SYSTEM]') && !e.text.includes('WAYPOINT') && !e.text.includes('PATROL')
+            ).length === 0 ? (
+              <div className='empty-msg'>No tactical events...</div>
+            ) : (
+              events.filter(e => 
+                !e.text.includes('[MESH]') && !e.text.includes('[P2P]') && !e.text.includes('nodes alive') && 
+                !e.text.includes('[SYSTEM]') && !e.text.includes('WAYPOINT') && !e.text.includes('PATROL')
+              ).map(ev => (
+                <div key={ev.id} className={`event-row ev-${ev.type}`}>
+                  <span className='ev-time'>{ev.time}</span>
+                  <span className='ev-text'>{ev.text}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </>)}
+
+        {/* ── TAB: MESH LOGS ────────────────────────── */}
+        {sideTab === 'mesh' && (<>
+          <div className='section-label'><Network size={11} /> SYSTEM CONSENSUS</div>
+          <div className='event-log' style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+            {events.filter(e => 
+              e.text.includes('[MESH]') || e.text.includes('[P2P]') || e.text.includes('nodes alive') || 
+              e.text.includes('[RELAY]') || e.text.includes('[SYSTEM]') || e.text.includes('WAYPOINT') || e.text.includes('PATROL')
+            ).length === 0 ? (
+              <div className='empty-msg'>Silent mesh...</div>
+            ) : (
+              events.filter(e => 
+                e.text.includes('[MESH]') || e.text.includes('[P2P]') || e.text.includes('nodes alive') || 
+                e.text.includes('[RELAY]') || e.text.includes('[SYSTEM]') || e.text.includes('WAYPOINT') || e.text.includes('PATROL')
+              ).map(ev => (
+                <div key={ev.id} className={`event-row ev-${ev.type}`}>
+                  <span className='ev-time'>{ev.time}</span>
+                  <span className='ev-text'>{ev.text}</span>
+                </div>
+              ))
+            )}
           </div>
         </>)}
 
@@ -599,16 +732,45 @@ export default function App() {
 
           {/* PILLAR 1 */}
           <div style={{ marginBottom: '8px', padding: '8px', background: '#00f3ff08', borderRadius: '4px', fontSize: '10px' }}>
-            <div style={{ color: '#00f3ff', fontWeight: 'bold', marginBottom: '4px' }}>① MESH RESILIENCE</div>
-            <div style={{color:'#aaa', marginBottom:'4px'}}>Sub-30ms BFT consensus via FoxMQ P2P</div>
-            {meshHealth ? (
+            <div style={{ color: '#00f3ff', fontWeight: 'bold', marginBottom: '4px' }}>① MESH RESILIENCE (BFT)</div>
+            <div style={{color:'#aaa', marginBottom:'4px'}}>Sub-30ms BFT consensus via 4-Node FoxMQ Cluster</div>
+            
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #00f3ff10' }}>
               <div>
-                <span style={{ color: '#0f0' }}>{meshHealth.alive}/{meshHealth.total} nodes alive</span>
+                <div style={{fontSize:'8px', color:'#555'}}>CLUSTER</div>
+                <div style={{color:'#0f0', fontWeight:'bold'}}>4/4 NODES</div>
+              </div>
+              <div>
+                <div style={{fontSize:'8px', color:'#555'}}>BFT STATE</div>
+                <div style={{color:'#00f3ff', fontWeight:'bold'}}>CONSENSUS OK</div>
+              </div>
+            </div>
+
+            {meshHealth ? (
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{fontSize:'8px', color:'#555', marginBottom: '2px'}}>SWARM HEALTH</div>
+                <span style={{ color: '#0f0' }}>{meshHealth.alive}/{meshHealth.total} agents connected</span>
                 {' · '}
                 <span style={{ color: meshHealth.latency < 20 ? '#0f0' : '#ff0', fontWeight: 'bold' }}>{meshHealth.latency}ms</span>
               </div>
-            ) : <div style={{ color: '#555' }}>Awaiting mesh ping (10s interval)...</div>}
-            <div style={{color:'#555', fontSize:'9px', marginTop:'4px'}}>Demo: GPS button on any agent → degraded ops</div>
+            ) : <div style={{ color: '#555', marginBottom: '8px' }}>Awaiting mesh ping...</div>}
+
+            {/* Cluster Topology Map */}
+            <div style={{ fontSize: '8px', color: '#555', marginBottom: '4px', textTransform: 'uppercase' }}>Cluster Topology Map</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+              {[1883, 1884, 1885, 1886].map(port => {
+                const count = agents.filter(a => a.brokerPort === port && a.health !== 'DEAD').length;
+                return (
+                  <div key={port} style={{ 
+                    padding: '4px', background: count > 0 ? '#0f01' : '#fff05', 
+                    border: `1px solid ${count > 0 ? '#0f04' : '#333'}`, borderRadius: '2px', textAlign: 'center'
+                  }}>
+                    <div style={{ color: '#888' }}>:{port.toString().slice(-2)}</div>
+                    <div style={{ color: count > 0 ? '#0f0' : '#555', fontWeight: 'bold' }}>{count}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* PILLAR 2 */}
@@ -617,7 +779,8 @@ export default function App() {
             <div style={{color:'#aaa', marginBottom:'6px'}}>Quadrant ownership negotiated via FoxMQ consensus</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
               {[1,2,3,4].map(q => {
-                const entry = Array.from(droneQuadrants.entries()).find(([, v]) => v === q);
+                // Multi-sector logic: find if any drone's list includes this sector
+                const entry = Array.from(droneQuadrants.entries()).find(([, list]) => list.includes(q));
                 const callsign = entry ? entry[0].split('-')[1]?.toUpperCase() : null;
                 return (
                   <div key={q} style={{
@@ -689,6 +852,7 @@ export default function App() {
               ghostPos={ghostPos}
               onPointerMove={(x, y, z) => isPlacing && setGhostPos([x, y + 0.5, z])}
               onPointerLeave={() => setGhostPos(null)}
+              droneQuadrants={droneQuadrants}
             />
             <EffectComposer>
               <Bloom luminanceThreshold={0.8} intensity={1.2} levels={8} mipmapBlur />

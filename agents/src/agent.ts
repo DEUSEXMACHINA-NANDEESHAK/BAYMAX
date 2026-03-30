@@ -20,6 +20,8 @@ export class Agent {
   private watchdogInterval: NodeJS.Timeout | null = null;
   protected trustAlerts: Map<string, number> = new Map();
   public isFrozen: boolean = false;
+  protected isDraining: boolean = false;
+  protected drainRate: number = 0;
   // --- SIMULATION DATA (Hidden from the swarm) ---
   public physicalPos: { x: number; y: number; z: number };
   protected actualPeers: Map<string, { x: number; y: number; z: number }> = new Map();
@@ -36,11 +38,13 @@ export class Agent {
   private knownTasks: Map<string, { taskId: string, pos: {x:number, y:number, z:number}, winnerId: string, timestamp: number, detectedBy?: string }> = new Map();
 
   constructor(type: AgentType, brokerPort = 1883) {
-    // Better name selection: Pick based on a combination of time and index to avoid immediate collisions
+    // TACTICAL NAMING: DRO-Bird and ROV-Animal (Inverted as requested)
     const list = type === 'drone' ? Agent.BIRD_NAMES : Agent.LAND_ANIMALS;
+    const prefix = type === 'drone' ? 'DRO' : 'ROV';
+    
     const variantId = uuidv4().substring(0, 4);
     const callsign = list[Math.floor(Math.random() * list.length)];
-    this.id = `${type}-${callsign}-${variantId}`;
+    this.id = `${prefix}-${callsign}-${variantId}`;
     this.type = type;
     
     console.log(`[SYSTEM] 🟢 Deploying ${type.toUpperCase()}... Callsign: ${callsign} | Ref: ${variantId}`);
@@ -62,7 +66,8 @@ export class Agent {
         relay: 1.0,
         method: 'self-reported'
       },
-      isBusy: false
+      isBusy: false,
+      brokerPort
     };
 
 
@@ -154,7 +159,26 @@ export class Agent {
     this.heartbeatInterval = setInterval(() => {
       this.selfDiagnose();
       this.state.timestamp = Date.now();
-      this.state.battery -= 0.01;
+
+      if (this.isDraining) {
+        // PRECISE DRAIN: Always hits zero in exactly 8 seconds
+        this.state.battery -= this.drainRate;
+        (this.state as any).isDraining = true;
+        if (this.state.battery <= 0) {
+          this.state.battery = 0;
+          (this.state as any).isDraining = false;
+          // TRIGGER ACTUAL HARDWARE FAILURE AT THE END
+          this.systemHealth.battery_sensor = false;
+          this.selfDiagnose(); 
+          this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
+          console.log(`[${this.id}] 🪫 BATTERY EXHAUSTED — Agent dying after 8s drain sequence.`);
+          this.freeze();
+          return;
+        }
+      } else {
+        this.state.battery -= 0.01; // Normal slow drain
+        (this.state as any).isDraining = false;
+      }
       
       this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state));
 
@@ -371,23 +395,33 @@ export class Agent {
         const data = JSON.parse(payload);
         this.knownTasks.delete(data.taskId);
         console.log(`[${this.id}] 🏁 MISSION COMPLETED: Registry cleared for ${data.taskId}`);
+        this.abortMission(data.taskId);
     }
-  }
+}
 
   private getActiveCount(): number {
     return 1 + Array.from(this.peers.values()).filter(p => p.health !== 'DEAD').length;
   }
 
-  private freeze() {
+  protected freeze() {
     console.log(`[${this.id}] ❄️ FREEZING AGENT`);
     this.isFrozen = true;
+    this.isDraining = false;
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     if (this.watchdogInterval) clearInterval(this.watchdogInterval);
     if (this.controlLoopInterval) clearInterval(this.controlLoopInterval);
     this.state.health = 'DEAD';
     this.state.battery = 0;
+    (this.state as any).isDraining = false;
     // Final broadcast of DEAD state
     this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state), { retain: true });
+    // Broadcast dead event so others know immediately
+    this.client.publish(`swarm/events/dead/${this.id}`, JSON.stringify({
+      deadAgent: this.id,
+      type: this.type,
+      detectedBy: this.id, // self-reported
+      timestamp: Date.now()
+    }), { qos: 2 });
   }
 
   private announce() {
@@ -434,10 +468,18 @@ export class Agent {
 
 
   public failSystem(system: keyof SystemHealth) {
-    this.systemHealth[system] = false;
-    console.log(`[${this.id}] ⚡ SYSTEM FAILURE INJECTED: ${system.toUpperCase()}`);
-    // Manually trigger a diagnosis immediately
-    this.selfDiagnose();
+    if (system === 'battery_sensor') {
+      // BATTERY DRAIN: Depletes in exactly 8 seconds
+      // Note: We don't set systemHealth.battery_sensor = false here yet!
+      // This allows the 8s countdown to finish before selfDiagnose() kills the agent.
+      this.isDraining = true;
+      this.drainRate = this.state.battery / 8;
+      console.log(`[${this.id}] 🔋 BATTERY DRAIN MODE: Depleting to zero in exactly 8 seconds...`);
+    } else {
+      // GPS / Radio failures trigger immediate self-diagnosis
+      this.systemHealth[system] = false;
+      this.selfDiagnose();
+    }
   }
   // --- Day 4: CTM HELPERS ---
 
@@ -511,5 +553,9 @@ export class Agent {
   // To be overridden by subclasses (e.g. Rover)
   protected onTaskAssigned(taskId: string, pos: { x: number; y: number; z: number }) {
       console.log(`[${this.id}] 🎯 I WON THE AUCTION for ${taskId}! Preparing mission...`);
+  }
+
+  protected abortMission(taskId: string) {
+      // Base implementation: just a placeholder
   }
 }

@@ -18,6 +18,7 @@ export interface AgentState {
   trust: TrustScore;
   isBusy: boolean;
   carryingTaskId?: string;
+  brokerPort?: number;
 }
 
 export interface SystemHealth {
