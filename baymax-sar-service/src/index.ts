@@ -11,7 +11,7 @@ import mqtt from 'mqtt';
 import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = Number(process.env.PORT) || 4000;
 const mqttPort = 1883;
 const wsPort = 9001;
 
