@@ -1,0 +1,30 @@
+{
+  "name": "baymax-sar-service",
+  "version": "1.0.0",
+  "description": "BAYMAX SAR Swarm Service — MQTT broker + agents + REST API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "aedes": "^0.51.3",
+    "aedes-server-factory": "^0.2.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mqtt": "^5.15.0",
+    "uuid": "^13.0.0",
+    "websocket-stream": "^5.5.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.2",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}

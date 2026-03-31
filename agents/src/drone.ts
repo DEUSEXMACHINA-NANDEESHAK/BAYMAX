@@ -11,8 +11,8 @@ import { Agent } from './agent.js';
  */
 export class Drone extends Agent {
   private scoutTarget: { x: number; y: number; z: number } | null = null;
-  private quadrant: number = 0; // 0 = unassigned
-  private claimedQuadrants: Set<number> = new Set();
+  private quadrants: number[] = []; // Multiple possible assignments
+  private sectorMap: Map<string, number[]> = new Map();
   private unconfirmedTasks: Map<string, any> = new Map();
   private isRelayMode: boolean = false;
   private lastQuadrantAnnounce: number = 0;
@@ -40,18 +40,33 @@ export class Drone extends Agent {
         }
 
         if (topic === 'swarm/drone/quadrant') {
-          // Record what quadrant another drone claimed
-          if (data.agentId !== this.id && data.quadrant) {
-            this.claimedQuadrants.add(data.quadrant);
-            // If another drone claimed our quadrant, re-negotiate
-            if (data.quadrant === this.quadrant && data.agentId < this.id) {
-              console.log(`[${this.id}] ⚡ QUADRANT ${this.quadrant} CONFLICT — yielding to ${data.agentId}`);
-              this.quadrant = 0; // Will re-negotiate next update cycle
+          if (data.agentId !== this.id) {
+            if (data.quadrants && Array.isArray(data.quadrants)) {
+              this.sectorMap.set(data.agentId, data.quadrants);
+              // Conflict check: if they stole our quadrant and have a higher priority (Lower ID)
+              data.quadrants.forEach((q: number) => {
+                if (this.quadrants.includes(q) && data.agentId < this.id) {
+                  console.log(`[${this.id}] ⚡ SECTOR ${q} CONFLICT — yielding to ${data.agentId}`);
+                  this.quadrants = this.quadrants.filter(v => v !== q);
+                }
+              });
+            } else if (data.quadrant === 0) {
+              this.sectorMap.delete(data.agentId);
+            } else if (data.quadrant) {
+               // Legacy single-quadrant support
+               this.sectorMap.set(data.agentId, [data.quadrant]);
             }
           }
         }
 
-      } catch { /* ignore non-JSON */ }
+        if (topic.startsWith('swarm/events/dead/')) {
+           const event = JSON.parse(msg);
+           this.sectorMap.delete(event.deadAgent);
+           console.log(`[${this.id}] 🚑 PEER DOWN! Re-calculating mission coverage...`);
+           setTimeout(() => this.negotiateQuadrant(), 500 + Math.random() * 500);
+        }
+
+      } catch (e) { /* ignore non-JSON */ }
     });
 
     // Claim quadrant after connecting — slight delay to let peers announce first
@@ -60,22 +75,32 @@ export class Drone extends Agent {
 
   private negotiateQuadrant() {
     if (this.isRelayMode) {
-      this.quadrant = 0;
+      this.quadrants = [];
       return;
     }
 
-    // Find an unclaimed quadrant (1-4)
-    for (let q = 1; q <= 4; q++) {
-      if (!this.claimedQuadrants.has(q)) {
-        this.quadrant = q;
-        break;
-      }
-    }
+    const aliveDrones = Array.from(this.peers.values())
+      .filter(p => p.type === 'drone' && p.health !== 'DEAD')
+      .concat([this.state]);
     
-    // Fallback to random if all 4 are (seemingly) taken
-    if (this.quadrant === 0) this.quadrant = Math.ceil(Math.random() * 4);
+    aliveDrones.sort((a,b) => a.id.localeCompare(b.id));
+    const index = aliveDrones.findIndex(d => d.id === this.id);
+    const numAlive = aliveDrones.length;
 
-    console.log(`[${this.id}] 🗳️  CONSENSUS: Claiming sector Q${this.quadrant}`);
+    if (numAlive === 1) {
+      this.quadrants = [1, 2, 3, 4];
+    } else if (numAlive === 2) {
+      this.quadrants = index === 0 ? [1, 2] : [3, 4];
+    } else if (numAlive === 3) {
+      if (index === 0) this.quadrants = [1];
+      else if (index === 1) this.quadrants = [2];
+      else this.quadrants = [3, 4];
+    } else {
+      // 4 or more drones: standard 1-per-sector
+      this.quadrants = [((index % 4) + 1)];
+    }
+
+    console.log(`[${this.id}] 🗳️  CONSENSUS: Covering sectors [${this.quadrants.join(', ')}]`);
     this.announceQuadrant();
   }
 
@@ -83,13 +108,26 @@ export class Drone extends Agent {
     this.lastQuadrantAnnounce = Date.now();
     this.client.publish('swarm/drone/quadrant', JSON.stringify({
       agentId: this.id,
-      quadrant: this.quadrant,
+      quadrants: this.quadrants, // New array-based field
+      quadrant: this.quadrants[0] || 0, // Backward compatibility
       timestamp: Date.now()
     }));
   }
 
   protected getBusyStatus(): boolean {
     return this.isRelayMode;
+  }
+
+  // Bug 1 Fix: Release quadrant before dying so dashboard clears immediately
+  protected freeze() {
+    this.quadrants = [];
+    this.client.publish('swarm/drone/quadrant', JSON.stringify({
+      agentId: this.id,
+      quadrants: [],
+      quadrant: 0,
+      timestamp: Date.now()
+    }));
+    super.freeze();
   }
 
   // 2D XY distance — ignores altitude to correctly judge "overhead" proximity
@@ -103,8 +141,8 @@ export class Drone extends Agent {
   protected update() {
     if (this.isFrozen) return;
 
-    // Re-negotiate quadrant if lost
-    if (this.quadrant === 0) {
+    // Re-negotiate quadrant if lost or empty
+    if (this.quadrants.length === 0 && !this.isRelayMode) {
       this.negotiateQuadrant();
       return;
     }
@@ -112,21 +150,20 @@ export class Drone extends Agent {
     // RELAY MODE: Low battery — release sector and relay
     if (this.state.battery < 25 && !this.isRelayMode) {
       this.isRelayMode = true;
-      this.quadrant = 0; // Release sector for others to pick up
-      console.log(`[${this.id}] ⚡ BATTERY LOW! Entering RELAY MODE — releasing sector Q${this.quadrant}`);
+      const old = this.quadrants.join(', ');
+      this.quadrants = []; // Release sector for others to pick up
+      console.log(`[${this.id}] ⚡ BATTERY LOW! Entering RELAY MODE — releasing sectors [${old}]`);
       this.client.publish('swarm/events/relay', JSON.stringify({
         agentId: this.id,
         mode: 'RELAY',
         timestamp: Date.now()
       }));
-      this.announceQuadrant(); // Announce Q0 to clear registry
+      this.announceQuadrant(); // Announce empty quadrants to clear registry
     }
 
     // PERIODIC RE-ANNOUNCE (every 5s) to keep mesh/dashboard synced
     if (Date.now() - this.lastQuadrantAnnounce > 5000) {
       this.announceQuadrant();
-      // Also clear stale knowledge to allow re-negotiation if a peer vanished
-      this.claimedQuadrants.clear();
     }
 
     this.unconfirmedTasks.forEach((task, taskId) => {
@@ -152,7 +189,8 @@ export class Drone extends Agent {
     const arrived = !this.scoutTarget || this.getDist2D(this.scoutTarget.x, this.scoutTarget.y) < 3;
     if (arrived) {
       this.scoutTarget = this.getNextWaypoint();
-      console.log(`[${this.id}] 🦅 Q${this.quadrant} WAYPOINT: (${this.scoutTarget.x.toFixed(0)}, ${this.scoutTarget.y.toFixed(0)})`);
+      const qStr = this.quadrants.length > 0 ? this.quadrants.join('+') : 'None';
+      console.log(`[${this.id}] 🦅 Q[${qStr}] WAYPOINT: (${this.scoutTarget.x.toFixed(0)}, ${this.scoutTarget.y.toFixed(0)})`);
     }
 
     if (this.scoutTarget) {
@@ -164,8 +202,11 @@ export class Drone extends Agent {
   }
 
   private getNextWaypoint(): { x: number; y: number; z: number } {
-    // Grid is 50x60. 4 quadrants + overflow
-    const q = ((this.quadrant - 1) % 4) + 1;
+    if (this.quadrants.length === 0) return { x: 25, y: 30, z: 10 }; // Default center hover
+
+    // Pick a random quadrant from assigned list
+    const q = this.quadrants[Math.floor(Math.random() * this.quadrants.length)];
+    
     let minX = 0, maxX = 25, minY = 0, maxY = 30;
     if (q === 2) { minX = 25; maxX = 50; }
     if (q === 3) { minY = 30; maxY = 60; }
@@ -177,7 +218,7 @@ export class Drone extends Agent {
       const midY = (minY + maxY) / 2;
       minX = midX - 8; maxX = midX + 8;
       minY = midY - 8; maxY = midY + 8;
-      console.log(`[${this.id}] 📡 GPS DEGRADED — tightening patrol to safe zone of Q${this.quadrant}`);
+      console.log(`[${this.id}] 📡 GPS DEGRADED — tightening patrol to safe zone of Q${q}`);
     }
 
     return {

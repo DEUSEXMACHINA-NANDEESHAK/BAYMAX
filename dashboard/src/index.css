@@ -503,3 +503,30 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
 .log-container::-webkit-scrollbar-thumb {
   background: rgba(0, 243, 255, 0.2);
 }
+
+/* ─── BATTERY DRAIN VISUALS ───────────────────────────────────────────── */
+.draining-pulse {
+  animation: border-danger-pulse 1s infinite alternate;
+  background: rgba(255, 0, 60, 0.08) !important;
+}
+
+@keyframes border-danger-pulse {
+  from { border-color: rgba(255, 0, 60, 0.3); box-shadow: 0 0 0px var(--danger); }
+  to { border-color: var(--danger); box-shadow: 0 0 10px rgba(255, 0, 60, 0.4); }
+}
+
+.draining-tag {
+  font-size: 7px;
+  font-weight: 900;
+  color: #fff;
+  background: var(--danger);
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+  animation: blink 0.5s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

@@ -138,4 +138,15 @@ export class Rover extends Agent {
     this.currentMission = { x: pos.x, y: pos.y };
     console.log(`[${this.id}] 🎯 MISSION ASSIGNED: ${taskId} at (${pos.x.toFixed(0)}, ${pos.y.toFixed(0)})`);
   }
+
+  protected abortMission(taskId: string) {
+    if (this.currentTaskId === taskId) {
+      console.log(`[${this.id}] 🛑 ABORTING MISSION: Task ${taskId} finalized by peer.`);
+      this.currentMission = null;
+      this.currentTaskId = null;
+      this.hasVictim = false;
+      delete (this.state as any).carryingTaskId;
+      this.patrolTarget = this.randomPatrolPoint();
+    }
+  }
 }

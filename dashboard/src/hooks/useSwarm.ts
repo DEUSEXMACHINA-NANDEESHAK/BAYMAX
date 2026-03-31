@@ -8,6 +8,8 @@ export interface AgentState {
   battery: number;
   health: string;
   timestamp: number;
+  brokerPort?: number;
+  isDraining?: boolean;
 }
 
 export interface SwarmTask {
@@ -49,7 +51,7 @@ export function useSwarm() {
   const [connected, setConnected] = useState(false);
   const [simStatus, setSimStatus] = useState<SimStatus | null>(null);
   const [meshHealth, setMeshHealth] = useState<MeshHealth | null>(null);
-  const [droneQuadrants, setDroneQuadrants] = useState<Map<string, number>>(new Map());
+  const [droneQuadrants, setDroneQuadrants] = useState<Map<string, number[]>>(new Map());
   const mqttRef = useRef<any>(null);
   const initRef = useRef(false);
 
@@ -59,7 +61,7 @@ export function useSwarm() {
       text,
       time: new Date().toLocaleTimeString('en-IN', { hour12: false }),
       type
-    }, ...prev].slice(0, 30));
+    }, ...prev].slice(0, 100)); // CAP AT 100 FOR EXTENDED HISTORY
   }, []);
 
   useEffect(() => {
@@ -77,10 +79,15 @@ export function useSwarm() {
       return;
     }
 
-    console.log('[BAYMAX] Connecting to FoxMQ WebSocket...');
-    addEvent('CONNECTING TO FOXMQ...', 'info');
+    // Auto-detect environment for MQTT host
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const DEFAULT_MQTT_URL = isLocal ? 'ws://localhost:4000/mqtt' : 'wss://baymax-sar.onrender.com/mqtt';
+    const MQTT_WS_URL = (import.meta as any).env.VITE_MQTT_URL || DEFAULT_MQTT_URL;
 
-    const client = connectFn('ws://localhost:9001', {
+    console.log(`[BAYMAX] Connecting to broker at ${MQTT_WS_URL}...`);
+    addEvent(`CONNECTING TO MESH...`, 'info');
+
+    const client = connectFn(MQTT_WS_URL, {
       clientId: `baymax-dash-${Math.random().toString(16).slice(2, 8)}`,
       username: 'BAYMAX_SWARM',
       password: 'Baymax.Nand@k15',
@@ -172,12 +179,20 @@ export function useSwarm() {
         }
 
         if (topic.startsWith('swarm/events/dead/')) {
-          const id = topic.split('/').pop() || 'unknown';
-          addEvent(`AGENT OFFLINE: ${id}`, 'danger');
+          const deadId = data.deadAgent || topic.split('/').pop() || 'unknown';
+          addEvent(`AGENT OFFLINE: ${deadId}`, 'danger');
+          
           setAgents(prev => {
             const next = new Map(prev);
-            const agent = next.get(id);
-            if (agent) next.set(id, { ...agent, health: 'DEAD' });
+            const agent = next.get(deadId);
+            if (agent) next.set(deadId, { ...agent, health: 'DEAD' });
+            return next;
+          });
+          
+          // Clear quadrant ownership instantly when a drone dies
+          setDroneQuadrants(prev => {
+            const next = new Map(prev);
+            next.delete(deadId);
             return next;
           });
         }
@@ -200,9 +215,14 @@ export function useSwarm() {
         }
 
         if (topic === 'swarm/drone/quadrant') {
+          const qList = data.quadrants || (data.quadrant ? [data.quadrant] : []);
           setDroneQuadrants(prev => {
             const next = new Map(prev);
-            next.set(data.agentId, data.quadrant);
+            if (qList.length === 0 || (qList.length === 1 && qList[0] === 0)) {
+               next.delete(data.agentId);
+            } else {
+               next.set(data.agentId, qList);
+            }
             return next;
           });
         }

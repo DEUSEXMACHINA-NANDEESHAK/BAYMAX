@@ -31,12 +31,16 @@ async function runSAR() {
   // Stagger spawning to avoid all agents hitting the broker simultaneously
   const swarm: Array<Drone | Rover> = [];
 
+  const brokerPorts = [1883, 1884, 1885, 1886];
+
   for (let i = 0; i < 4; i++) {
-    swarm.push(new Drone());
+    const port = brokerPorts[Math.floor(Math.random() * brokerPorts.length)];
+    swarm.push(new Drone(port));
     await sleep(300);
   }
   for (let i = 0; i < 4; i++) {
-    swarm.push(new Rover());
+    const port = brokerPorts[Math.floor(Math.random() * brokerPorts.length)];
+    swarm.push(new Rover(port));
     await sleep(300);
   }
 
