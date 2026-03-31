@@ -78,7 +78,7 @@ export class Agent {
       battery_sensor: true
     };
 
-    this.client = mqtt.connect(`mqtt://localhost:${brokerPort}`, {
+    this.client = mqtt.connect(`mqtt://127.0.0.1:${brokerPort}`, {
       clientId: this.id,
       clean: true,
       reconnectPeriod: 500,
