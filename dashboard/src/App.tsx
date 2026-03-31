@@ -372,7 +372,7 @@ function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerL
   ghostPos: [number, number, number] | null;
   onPointerMove: (x: number, y: number, z: number) => void;
   onPointerLeave: () => void;
-  droneQuadrants: Map<string, number>;
+  droneQuadrants: Map<string, number[]>;
 }) {
   return (
     <>
@@ -405,7 +405,7 @@ function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerL
 }
 
 // ─── MAP QUADRANTS (3D visualization of search sectors) ──────────────────────
-function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number> }) {
+function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number[]> }) {
   const quadrants = [
     { id: 1, name: 'Q1', x: 12.5, y: 15,  w: 25, h: 30, color: '#00f3ff' },
     { id: 2, name: 'Q2', x: 37.5, y: 15,  w: 25, h: 30, color: '#ff00ff' },
@@ -444,8 +444,7 @@ function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number> 
               color={q.color}
               anchorX='center'
               anchorY='middle'
-              transparent
-              opacity={callsign ? 0.15 : 0.05}
+              fillOpacity={callsign ? 0.15 : 0.05}
             >
               {q.name}
             </Text>
@@ -458,8 +457,7 @@ function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number> 
                 color={q.color}
                 anchorX='center'
                 anchorY='middle'
-                transparent
-                opacity={0.6}
+                fillOpacity={0.6}
               >
                 {callsign}
               </Text>
