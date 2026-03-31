@@ -79,10 +79,15 @@ export function useSwarm() {
       return;
     }
 
-    console.log('[BAYMAX] Connecting to FoxMQ WebSocket...');
-    addEvent('CONNECTING TO FOXMQ...', 'info');
+    // Auto-detect environment for MQTT host
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const DEFAULT_MQTT_URL = isLocal ? 'ws://localhost:4000/mqtt' : 'wss://baymax-sar.onrender.com/mqtt';
+    const MQTT_WS_URL = (import.meta as any).env.VITE_MQTT_URL || DEFAULT_MQTT_URL;
 
-    const client = connectFn('ws://localhost:9001', {
+    console.log(`[BAYMAX] Connecting to broker at ${MQTT_WS_URL}...`);
+    addEvent(`CONNECTING TO MESH...`, 'info');
+
+    const client = connectFn(MQTT_WS_URL, {
       clientId: `baymax-dash-${Math.random().toString(16).slice(2, 8)}`,
       username: 'BAYMAX_SWARM',
       password: 'Baymax.Nand@k15',
