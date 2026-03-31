@@ -141,7 +141,7 @@ mqttServer.listen(mqttPort, '0.0.0.0', () => {
   console.log(`[SAR SERVICE] 🤖 MQTT TCP Broker ready on port ${mqttPort}`);
 });
 
-httpServer.listen(port, () => {
-  console.log(`[SAR SERVICE] ⚡ Server running on http://localhost:${port}`);
+httpServer.listen(Number(port), '0.0.0.0', () => {
+  console.log(`[SAR SERVICE] ⚡ Server running on port ${port} (0.0.0.0)`);
   console.log(`[SAR SERVICE] 🛰️  MQTT/WS Broker ready on same port via /mqtt (for dashboard)`);
 });
