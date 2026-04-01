@@ -88,6 +88,16 @@ export class Rover extends Agent {
       if (dist < 1.2) {
         if (!this.hasVictim) {
           // Arrived at victim
+          // BUG FIX: Prevent "Pseudo Pickup" at base (0,0)
+          const isAtBase = Math.abs(this.currentMission.x) < 5 && Math.abs(this.currentMission.y) < 5;
+          if (isAtBase) {
+            console.warn(`[${this.id}] 🛑 PSEUDO PICKUP PREVENTED: Target ${this.currentTaskId} is too close to base. Mission invalidated.`);
+            this.currentMission = null;
+            this.currentTaskId = null;
+            this.patrolTarget = this.randomPatrolPoint();
+            return;
+          }
+
           console.log(`[${this.id}] 🚑 PICKUP: Secured ${this.currentTaskId} — heading to base`);
           this.hasVictim = true;
           (this.state as any).carryingTaskId = this.currentTaskId;

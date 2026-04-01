@@ -252,6 +252,12 @@ export class Agent {
       });
       // 3. Mission Guardian: Detect dead rescuers or vanished winners
       this.knownTasks.forEach((task, taskId) => {
+        // VALIDATION: Skip re-broadcasting malformed tasks
+        if (!task.pos || isNaN(task.pos.x) || isNaN(task.pos.y)) {
+          this.knownTasks.delete(taskId);
+          return;
+        }
+
         const winner = this.peers.get(task.winnerId);
         
         // If winner is explicitly DEAD OR if winner has vanished from the mesh (stale/disconnected)
@@ -363,6 +369,12 @@ export class Agent {
     if (topic.startsWith('swarm/task/verified')) {
         const task = JSON.parse(payload);
         
+        // VALIDATION: Reject tasks without valid coordinates
+        if (!task.pos || isNaN(task.pos.x) || isNaN(task.pos.y)) {
+          console.warn(`[${this.id}] ⚠️  MALFORMED TASK: Ignored task ${task.taskId} (missing position)`);
+          return;
+        }
+
         // Always track in knownTasks so the Mission Guardian can monitor for failure
         this.knownTasks.set(task.taskId, { ...task, winnerId: 'pending' });
 

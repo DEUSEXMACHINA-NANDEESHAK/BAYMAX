@@ -13,8 +13,8 @@ export class TaskEngine extends EventEmitter {
   private activeTasks: Set<string> = new Set();
   private auctionStartTimes: Map<string, number> = new Map();
   
-  // High-speed performance tuning: 100ms (clinging to the 30ms fabric speed)
-  private readonly AUCTION_WINDOW = 250; 
+  // High-speed performance tuning: 50ms (aligning with the 30ms fabric claim)
+  private readonly AUCTION_WINDOW = 50; 
 
   constructor(private agentId: string, private client: MqttClient) {
     super();
@@ -25,6 +25,10 @@ export class TaskEngine extends EventEmitter {
    * Window: 250ms for sub-500ms decision making.
    */
   public handleTask(taskId: string, targetPos: { x: number; y: number; z: number }, state: AgentState) {
+    if (!targetPos || isNaN(targetPos.x) || isNaN(targetPos.y)) {
+        return;
+    }
+
     // If it's a known active task, check if we need to force a re-auction
     // (In a real swarm, we might use a version/timestamp check here)
     this.activeTasks.add(taskId);
