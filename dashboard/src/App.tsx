@@ -849,22 +849,13 @@ export default function App() {
         </>)}
 
         {/* Emergency + Spawn — always visible */}
-        <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-          <button
-            className='emergency-btn'
-            style={{ flex: 1.5 }}
-            onClick={() => sendCommand('swarm/fault/emergency', {})}
-          >
-            ⚠ FREEZE ALL
-          </button>
-          <button
-            className='emergency-btn'
-            style={{ flex: 1, backgroundColor: '#00f3ff20', borderColor: '#00f3ff' }}
-            onClick={() => sendCommand('swarm/sim/unfreeze', {})}
-          >
-            ▶ RESUME
-          </button>
-        </div>
+        <button
+          className='emergency-btn'
+          style={{ marginTop: '8px', width: '100%' }}
+          onClick={() => sendCommand('swarm/fault/emergency', {})}
+        >
+          💀 KILL ALL AGENTS
+        </button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
           <button className='start-btn' style={{ fontSize: '9px', backgroundColor: '#00f3ff20' }}
             onClick={() => sendCommand('swarm/sim/spawn', { type: 'drone' })}>

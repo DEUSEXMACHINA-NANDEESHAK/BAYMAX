@@ -400,10 +400,6 @@ export class Agent {
         console.log(`[${this.id}] 🏁 MISSION COMPLETED: Registry cleared for ${data.taskId}`);
         this.abortMission(data.taskId);
     }
-    if (topic === 'swarm/sim/unfreeze') {
-        console.log(`[${this.id}] ▶ RESUME: Unfreezing agent loop`);
-        this.unfreeze();
-    }
 }
 
   private getActiveCount(): number {
@@ -429,17 +425,6 @@ export class Agent {
       detectedBy: this.id, // self-reported
       timestamp: Date.now()
     }), { qos: 2 });
-  }
-
-  protected unfreeze() {
-    console.log(`[${this.id}] ▶ UNFREEZING AGENT`);
-    this.isFrozen = false;
-    this.state.health = 'FULL';
-    this.startHeartbeat();
-    this.startWatchdog();
-    this.startControlLoop();
-    this.selfDiagnose();
-    this.client.publish(`swarm/state/${this.id}`, JSON.stringify(this.state), { retain: true });
   }
 
   private announce() {

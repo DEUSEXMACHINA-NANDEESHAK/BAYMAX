@@ -65,7 +65,7 @@ async function startSwarm() {
     }), { retain: true });
 
     // Listen for tactical overrides from the mesh (e.g. Dashboard)
-    client.subscribe(['swarm/sim/stop', 'swarm/sim/spawn', 'swarm/sim/unfreeze']);
+    client.subscribe(['swarm/sim/stop', 'swarm/sim/spawn']);
     console.log(`[SAR SERVICE] 🛰️  Orchestrator subscribed to tactical overrides`);
   });
 
@@ -82,11 +82,6 @@ async function startSwarm() {
         const agent = type === 'drone' ? new Drone(mqttPort) : new Rover(mqttPort);
         swarm.push(agent);
         console.log(`[SAR SERVICE] ➕ Tactical SPAWN: Received ${type.toUpperCase()} request`);
-    }
-
-    if (topic === 'swarm/sim/unfreeze') {
-        console.log(`[SAR SERVICE] ▶ Tactical RESUME: Unfreezing swarm loop`);
-        // Agents handles their own unfreeze from the mesh message
     }
   });
 
