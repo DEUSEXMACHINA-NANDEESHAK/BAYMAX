@@ -444,17 +444,61 @@ html, body, #root { height: 100%; overflow: hidden; background: var(--bg); color
   right: 20px;
   width: 280px;
   max-height: 80vh;
-  background: rgba(0, 5, 5, 0.85);
+  background: rgba(0, 5, 5, 0.95);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 243, 255, 0.3);
+  border: 1px solid rgba(0, 243, 255, 0.4);
   border-radius: 8px;
   padding: 15px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
+  box-shadow: 0 0 40px rgba(0, 243, 255, 0.15);
   z-index: 1000;
   overflow: hidden;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.state-logger.collapsed {
+  width: 140px;
+  height: 32px;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 243, 255, 0.1);
+  border-color: rgba(0, 243, 255, 0.3);
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--neon);
+}
+
+.state-logger.collapsed:hover {
+  background: rgba(0, 243, 255, 0.2);
+  border-color: var(--neon);
+}
+
+.end-mission-btn {
+  background: rgba(255, 0, 60, 0.1);
+  border: 1px solid rgba(255, 0, 60, 0.4);
+  color: #ff003c;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.1em;
+}
+
+.end-mission-btn:hover {
+  background: #ff003c;
+  color: #fff;
+  box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
 }
 
 .state-logger h3 {

@@ -231,8 +231,18 @@ function ThreatNode({ task, agents }: { task: SwarmTask; agents: AgentState[] })
 }
 
 function StateLogger({ agents }: { agents: AgentState[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  if (!isOpen) {
+    return (
+      <div className="state-logger collapsed" onClick={() => setIsOpen(true)}>
+        <Terminal size={14} /> <span>LIVE P2P MIRROR</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="state-logger">
+    <div className="state-logger" onClick={() => setIsOpen(false)}>
       <h3>📡 LIVE P2P STATE MIRROR</h3>
       <div className="log-container">
         {agents.map(a => {
@@ -243,7 +253,7 @@ function StateLogger({ agents }: { agents: AgentState[] }) {
               <pre>{JSON.stringify({
                 type: a.type,
                 role: (a as any).duties?.[0] || 'idle',
-                battery: `${a.battery}%`,
+                battery: `${a.battery.toFixed(0)}%`,
                 pos: `(${a.pos.x.toFixed(0)}, ${a.pos.y.toFixed(0)}, ${a.pos.z?.toFixed(1)}m)`
               }, null, 2)}</pre>
             </div>
@@ -631,8 +641,17 @@ export default function App() {
               <div className='logo-sub'>SWARM-OS v2.0.4</div>
             </div>
           </div>
-          <div className={`conn-pill ${connected ? 'conn-up' : 'conn-down'}`}>
-            {connected ? <><CheckCircle size={10} /> LINKED</> : <><WifiOff size={10} /> DOWN</>}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className={`conn-pill ${connected ? 'conn-up' : 'conn-down'}`}>
+              {connected ? <><CheckCircle size={10} /> LINKED</> : <><WifiOff size={10} /> DOWN</>}
+            </div>
+            <button 
+              className="end-mission-btn" 
+              onClick={() => sendCommand('swarm/sim/stop', {})}
+              title="Terminate Simulation for all Commanders"
+            >
+              STOP
+            </button>
           </div>
         </div>
 
@@ -810,13 +829,22 @@ export default function App() {
         </>)}
 
         {/* Emergency + Spawn — always visible */}
-        <button
-          className='emergency-btn'
-          style={{ marginTop: '8px' }}
-          onClick={() => sendCommand('swarm/fault/emergency', {})}
-        >
-          ⚠ EMERGENCY FREEZE ALL
-        </button>
+        <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
+          <button
+            className='emergency-btn'
+            style={{ flex: 1.5 }}
+            onClick={() => sendCommand('swarm/fault/emergency', {})}
+          >
+            ⚠ FREEZE ALL
+          </button>
+          <button
+            className='emergency-btn'
+            style={{ flex: 1, backgroundColor: '#00f3ff20', borderColor: '#00f3ff' }}
+            onClick={() => sendCommand('swarm/sim/unfreeze', {})}
+          >
+            ▶ RESUME
+          </button>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
           <button className='start-btn' style={{ fontSize: '9px', backgroundColor: '#00f3ff20' }}
             onClick={() => sendCommand('swarm/sim/spawn', { type: 'drone' })}>

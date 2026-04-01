@@ -63,6 +63,31 @@ async function startSwarm() {
       timer: 0,
       message: 'SIMULATION ACTIVE — Swarm deployed successfully'
     }), { retain: true });
+
+    // Listen for tactical overrides from the mesh (e.g. Dashboard)
+    client.subscribe(['swarm/sim/stop', 'swarm/sim/spawn', 'swarm/sim/unfreeze']);
+    console.log(`[SAR SERVICE] 🛰️  Orchestrator subscribed to tactical overrides`);
+  });
+
+  client.on('message', (topic, payload) => {
+    const data = JSON.parse(payload.toString());
+    
+    if (topic === 'swarm/sim/stop') {
+        console.log(`[SAR SERVICE] 🛑 Tactical STOP received from mesh`);
+        stopSimulation();
+    }
+
+    if (topic === 'swarm/sim/spawn') {
+        const type = data.type || 'drone';
+        const agent = type === 'drone' ? new Drone(mqttPort) : new Rover(mqttPort);
+        swarm.push(agent);
+        console.log(`[SAR SERVICE] ➕ Tactical SPAWN: Received ${type.toUpperCase()} request`);
+    }
+
+    if (topic === 'swarm/sim/unfreeze') {
+        console.log(`[SAR SERVICE] ▶ Tactical RESUME: Unfreezing swarm loop`);
+        // Agents handles their own unfreeze from the mesh message
+    }
   });
 
   // High-frequency state publish loop
@@ -75,6 +100,16 @@ async function startSwarm() {
       if (!a.isFrozen) a.publishState();
     });
   }, 100);
+}
+
+function stopSimulation() {
+  isSimulationRunning = false;
+  if (publishInterval) clearInterval(publishInterval);
+  swarm.forEach(a => {
+    try { a.client.end(); } catch (e) {}
+  });
+  swarm = [];
+  console.log(`[SAR SERVICE] 🏁 MISSION TERMINATED — System reset to idle`);
 }
 
 // 3. REST Endpoints
