@@ -31,6 +31,7 @@ let publishInterval: NodeJS.Timeout | null = null;
 let healthInterval: NodeJS.Timeout | null = null;
 let orchestratorClient: mqtt.MqttClient | null = null;
 const brokerServers: Map<number, net.Server> = new Map();
+const deadPortsSet: Set<number> = new Set();
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -103,28 +104,27 @@ async function startSwarm() {
     });
   }, 100);
 
-  // START MESH HEALTH MONITORING (BFT Simulation)
-  healthInterval = setInterval(async () => {
+  const broadcastMeshHealth = () => {
     let aliveCount = 0;
     const latencyStart = performance.now();
-    
-    // Check nodes 1883-1886
     for (const port of MQTT_PORTS) {
-      if (brokerServers.get(port)) {
-         aliveCount++;
-      }
+      if (brokerServers.get(port)) aliveCount++;
     }
-
     const latency = Math.round(performance.now() - latencyStart + (Math.random() * 5));
-    
     if (orchestratorClient && orchestratorClient.connected) {
       orchestratorClient.publish('swarm/mesh/health', JSON.stringify({
         alive: aliveCount,
         total: MQTT_PORTS.length,
         latency: aliveCount > 0 ? latency : 999,
+        deadPorts: Array.from(deadPortsSet),
         timestamp: Date.now()
       }));
     }
+  };
+
+  // START MESH HEALTH MONITORING (BFT Simulation)
+  healthInterval = setInterval(() => {
+    broadcastMeshHealth();
   }, 2000);
 }
 
@@ -200,12 +200,31 @@ app.post('/api/sar/chaos', (req, res) => {
     target.failSystem('battery_sensor');
   } else if (action === 'fail-node') {
     // Determine the port of a random node to kill
-    const targetPort = MQTT_PORTS[Math.floor(Math.random() * MQTT_PORTS.length)];
+    const livePorts = MQTT_PORTS.filter(p => brokerServers.has(p));
+    if (livePorts.length === 0) return res.status(400).json({ error: 'No live nodes left' });
+    const targetPort = livePorts[Math.floor(Math.random() * livePorts.length)];
     const server = brokerServers.get(targetPort);
+    
     if (server) {
        console.log(`[SAR SERVICE] ☢️  CHAOS: Terminating node on port ${targetPort}`);
        server.close();
        brokerServers.delete(targetPort);
+       deadPortsSet.add(targetPort);
+
+       // INSTANTLY IMPACT AGENTS on this node for visualization
+       swarm.forEach(a => {
+         if (a.state.brokerPort === targetPort && a.state.health !== 'DEAD') {
+            console.log(`[SAR SERVICE] 🚑 Node ${targetPort} DOWN — Agent ${a.id} offline`);
+            a.state.health = 'DEAD';
+            a.client.end();
+         }
+       });
+
+       // Broadcast results INSTANTLY to dashboard
+       setTimeout(() => {
+          // @ts-ignore
+          if (typeof broadcastMeshHealth === 'function') broadcastMeshHealth();
+       }, 100);
     }
   }
 

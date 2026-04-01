@@ -40,6 +40,7 @@ export interface MeshHealth {
   total: number;
   latency: number;
   timestamp: number;
+  deadPorts?: number[];
 }
 
 // ── SINGLETON GUARD ──────────────────────────────────────────────────────────

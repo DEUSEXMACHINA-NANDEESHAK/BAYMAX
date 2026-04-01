@@ -669,7 +669,9 @@ export default function App() {
             </button>
           ))}
         </div>
-
+        
+        {/* Scrollable Content Area */}
+        <div className="sidebar-content" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {/* ── TAB: SWARM ─────────────────────────────── */}
         {sideTab === 'swarm' && (<>
           <div className='section-label'><ShieldAlert size={11} /> LIVE TELEMETRY</div>
@@ -790,18 +792,24 @@ export default function App() {
             <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #00f3ff10' }}>
               <div>
                 <div style={{fontSize:'8px', color:'#555'}}>CLUSTER</div>
-                <div style={{color:'#0f0', fontWeight:'bold'}}>4/4 NODES</div>
+                <div style={{color: (meshHealth?.alive || 0) < (meshHealth?.total || 4) ? '#ff003c' : '#0f0', fontWeight:'bold'}}>
+                  {meshHealth?.alive || 0}/{meshHealth?.total || 4} NODES
+                </div>
               </div>
               <div>
                 <div style={{fontSize:'8px', color:'#555'}}>BFT STATE</div>
-                <div style={{color:'#00f3ff', fontWeight:'bold'}}>CONSENSUS OK</div>
+                <div style={{color: (meshHealth?.alive || 0) < (meshHealth?.total || 4) ? '#ff9900' : '#00f3ff', fontWeight:'bold'}}>
+                  { (meshHealth?.alive || 0) < (meshHealth?.total || 4) ? 'PARTIAL OUTAGE' : 'CONSENSUS OK' }
+                </div>
               </div>
             </div>
 
             {meshHealth ? (
               <div style={{ marginBottom: '8px' }}>
                 <div style={{fontSize:'8px', color:'#555', marginBottom: '2px'}}>SWARM HEALTH</div>
-                <span style={{ color: '#0f0' }}>{meshHealth.alive}/{meshHealth.total} agents connected</span>
+                <span style={{ color: meshHealth.alive === meshHealth.total ? '#0f0' : '#ff003c' }}>
+                  {meshHealth.alive}/{meshHealth.total} nodes online
+                </span>
                 {' · '}
                 <span style={{ color: meshHealth.latency < 20 ? '#0f0' : '#ff0', fontWeight: 'bold' }}>{meshHealth.latency}ms</span>
               </div>
@@ -812,13 +820,22 @@ export default function App() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
               {[1883, 1884, 1885, 1886].map(port => {
                 const count = agents.filter(a => a.brokerPort === port && a.health !== 'DEAD').length;
+                const isDead = meshHealth?.deadPorts?.includes(port);
+                
                 return (
                   <div key={port} style={{ 
-                    padding: '4px', background: count > 0 ? '#0f01' : '#fff05', 
-                    border: `1px solid ${count > 0 ? '#0f04' : '#333'}`, borderRadius: '2px', textAlign: 'center'
+                    padding: '4px', 
+                    background: isDead ? '#ff003c20' : (count > 0 ? '#0f01' : '#fff05'), 
+                    border: `1px solid ${isDead ? '#ff003c' : (count > 0 ? '#0f04' : '#333')}`, 
+                    borderRadius: '2px', textAlign: 'center',
+                    transition: 'all 0.3s ease'
                   }}>
-                    <div style={{ color: '#888' }}>:{port.toString().slice(-2)}</div>
-                    <div style={{ color: count > 0 ? '#0f0' : '#555', fontWeight: 'bold' }}>{count}</div>
+                    <div style={{ color: isDead ? '#ff003c' : '#888', fontSize: '9px' }}>
+                      {isDead ? 'OFFLINE' : `:${port.toString().slice(-2)}`}
+                    </div>
+                    <div style={{ color: isDead ? '#ff003c' : (count > 0 ? '#0f0' : '#555'), fontWeight: 'bold' }}>
+                      {isDead ? '✕' : count}
+                    </div>
                   </div>
                 );
               })}
@@ -886,9 +903,10 @@ export default function App() {
               3. Its sector goes unpatrolled<br/>
               4. Sector re-negotiated by remaining drones
             </div>
+            </div>
           </div>
+        </>)}
         </div>
-      </>)}
 
         {/* Emergency + Spawn — always visible */}
         <button
