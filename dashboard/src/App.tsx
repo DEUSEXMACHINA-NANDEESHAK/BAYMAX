@@ -23,7 +23,7 @@ function AgentNode({ agent }: { agent: AgentState }) {
   const isDead = agent.health === 'DEAD';
   const isDrone = agent.type === 'drone';
   const isAI = agent.type === 'ai-agent';
-  const isCarrying = (agent as any).carryingTaskId;
+  const isCarrying = agent.carryingTaskId;
 
   const color = isDead ? '#333' : isAI ? '#ff00ff' : isDrone ? '#00f3ff' : isCarrying ? '#ffe100' : '#00ff41';
   const emissive = isDead ? '#000' : color;
@@ -169,7 +169,7 @@ function MeshLinks({ agents }: { agents: AgentState[] }) {
 function ThreatNode({ task, agents }: { task: SwarmTask; agents: AgentState[] }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const winner = agents.find(a => a.id === task.winnerId && a.health !== 'DEAD');
-  const carrier = agents.find(a => (a as any).carryingTaskId === task.taskId && a.health !== 'DEAD');
+  const carrier = agents.find(a => a.carryingTaskId === task.taskId && a.health !== 'DEAD');
   const isUnconfirmed = (task as any).status === 'unconfirmed';
   const color = isUnconfirmed ? '#555' : carrier ? '#007bff' : '#ff003c';
   const emissive = isUnconfirmed ? '#222' : color;
@@ -252,7 +252,7 @@ function StateLogger({ agents }: { agents: AgentState[] }) {
               <span className="log-id">[{callsign}]</span>
               <pre>{JSON.stringify({
                 type: a.type,
-                role: (a as any).duties?.[0] || 'idle',
+                role: a.duties?.[0] || 'idle',
                 battery: `${a.battery.toFixed(0)}%`,
                 pos: `(${a.pos.x.toFixed(0)}, ${a.pos.y.toFixed(0)}, ${a.pos.z?.toFixed(1)}m)`
               }, null, 2)}</pre>
@@ -768,6 +768,21 @@ export default function App() {
           <div className='section-label'><AlertTriangle size={11} /> VERTEX PILLARS</div>
 
           {/* PILLAR 1 */}
+          <div style={{ padding: '0 16px 20px' }}>
+            <div style={{ 
+              background: 'rgba(255, 153, 0, 0.1)', 
+              border: '1px solid rgba(255, 153, 0, 0.4)', 
+              borderRadius: '6px', 
+              padding: '12px', 
+              marginBottom: '16px' 
+            }}>
+              <div style={{ color: '#ff9900', fontWeight: '900', fontSize: '10px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldAlert size={12} /> MISSION PROTOCOL
+              </div>
+              <p style={{ fontSize: '9px', lineHeight: '1.4', color: '#ff9900cc' }}>
+                To preserve autonomous cycles, please <strong>ALWAYS CLICK STOP</strong> before exiting the browser if you have finished your simulation briefing.
+              </p>
+            </div>
           <div style={{ marginBottom: '8px', padding: '8px', background: '#00f3ff08', borderRadius: '4px', fontSize: '10px' }}>
             <div style={{ color: '#00f3ff', fontWeight: 'bold', marginBottom: '4px' }}>① MESH RESILIENCE (BFT)</div>
             <div style={{color:'#aaa', marginBottom:'4px'}}>Sub-30ms BFT consensus via 4-Node FoxMQ Cluster</div>
@@ -846,7 +861,8 @@ export default function App() {
               4. Sector re-negotiated by remaining drones
             </div>
           </div>
-        </>)}
+        </div>
+      </>)}
 
         {/* Emergency + Spawn — always visible */}
         <button

@@ -28,6 +28,7 @@ let swarm: Array<Drone | Rover> = [];
 let isSimulationRunning = false;
 let runId = '';
 let publishInterval: NodeJS.Timeout | null = null;
+let orchestratorClient: mqtt.MqttClient | null = null;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -57,6 +58,7 @@ async function startSwarm() {
     username: 'BAYMAX_SWARM',
     password: 'Baymax.Nand@k15'
   });
+  orchestratorClient = client;
 
   client.on('connect', () => {
     client.publish('swarm/sim/status', JSON.stringify({
@@ -100,6 +102,18 @@ async function startSwarm() {
 function stopSimulation() {
   isSimulationRunning = false;
   if (publishInterval) clearInterval(publishInterval);
+  
+  // Broadcast IDLE status to the mesh to clear all observers
+  if (orchestratorClient) {
+    orchestratorClient.publish('swarm/sim/status', JSON.stringify({
+      simulation: 'idle',
+      timer: 0,
+      message: 'SIMULATION IDLE — READY FOR NEW MISSION'
+    }), { retain: true });
+    orchestratorClient.end();
+    orchestratorClient = null;
+  }
+
   swarm.forEach(a => {
     try { a.client.end(); } catch (e) {}
   });
@@ -135,13 +149,8 @@ app.post('/api/sar/start', async (req, res) => {
 });
 
 app.post('/api/sar/stop', (req, res) => {
-  isSimulationRunning = false;
-  if (publishInterval) clearInterval(publishInterval);
-  swarm.forEach(a => {
-    try { a.client.end(); } catch (e) {}
-  });
-  swarm = [];
-  res.json({ status: 'stopped', message: 'Simulation cleared' });
+  stopSimulation();
+  res.json({ status: 'stopped', message: 'Mission terminated and registry cleared' });
 });
 
 app.post('/api/sar/chaos', (req, res) => {

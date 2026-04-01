@@ -10,6 +10,8 @@ export interface AgentState {
   timestamp: number;
   brokerPort?: number;
   isDraining?: boolean;
+  carryingTaskId?: string;
+  duties?: string[];
 }
 
 export interface SwarmTask {
@@ -207,6 +209,13 @@ export function useSwarm() {
 
         if (topic === 'swarm/sim/status') {
           setSimStatus(data as SimStatus);
+          // If simulation is idle, clear all local state to avoid ghost (retained) agents
+          if ((data as any).simulation === 'idle') {
+            console.log('[BAYMAX] 🏁 Mission Idle: Clearing local telemetry');
+            setAgents(new Map());
+            setTasks(new Map());
+            setDroneQuadrants(new Map());
+          }
         }
 
         if (topic === 'swarm/mesh/health') {
