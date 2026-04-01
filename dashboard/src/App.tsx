@@ -828,16 +828,22 @@ export default function App() {
               className="start-btn" 
               style={{ marginTop: '12px', width: '100%', fontSize: '9px', backgroundColor: '#ff003c15', border: '1px solid #ff003c40', color: '#ff003c' }}
               onClick={async () => {
-                const API_URL = (import.meta as any).env.VITE_SAR_API_URL || 'http://localhost:4000/api';
+                // Ensure we use the production HTTPS URL to avoid browser security blocks
+                const PROD_URL = 'https://baymax-sar.zeabur.app/api';
+                const API_URL = (import.meta as any).env.VITE_SAR_API_URL || PROD_URL;
+                
                 try {
-                  await fetch(`${API_URL}/sar/chaos`, { 
+                  const response = await fetch(`${API_URL}/sar/chaos`, { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'fail-node' })
                   });
-                  console.log('[DASHBOARD] ☢️ Node Chaos command sent');
+                  
+                  if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                  console.log('[DASHBOARD] ☢️ Node Chaos command sent successfully');
                 } catch (e) {
                   console.error('[DASHBOARD] Node failure injection failed:', e);
+                  alert(`Injection Failed: ${e instanceof Error ? e.message : 'Check console'}`);
                 }
               }}
             >
