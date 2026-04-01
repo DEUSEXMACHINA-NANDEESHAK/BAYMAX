@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import * as mqtt from 'mqtt';
+import mqtt from 'mqtt';
 
 export interface AgentState {
   id: string;
@@ -74,7 +74,7 @@ export function useSwarm() {
     }
     initRef.current = true;
 
-    const connectFn = (mqtt as any).connect || (mqtt as any).default?.connect;
+    const connectFn = (mqtt as any)?.connect || (mqtt as any)?.default?.connect || (mqtt as any);
     if (typeof connectFn !== 'function') {
       console.error('[BAYMAX] mqtt.connect not found');
       addEvent('MQTT BOOTSTRAP FAILED', 'danger');
