@@ -156,6 +156,7 @@ export class Agent {
   }
 
   private startHeartbeat() {
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     this.heartbeatInterval = setInterval(() => {
       this.selfDiagnose();
       this.state.timestamp = Date.now();
@@ -176,7 +177,7 @@ export class Agent {
           return;
         }
       } else {
-        this.state.battery -= 0.01; // Normal slow drain
+        this.state.battery = Math.max(0, this.state.battery - 0.01); // Normal slow drain
         (this.state as any).isDraining = false;
       }
       
@@ -189,6 +190,7 @@ export class Agent {
   }
 
   private startControlLoop() {
+    if (this.controlLoopInterval) clearInterval(this.controlLoopInterval);
     this.controlLoopInterval = setInterval(() => {
       this.update();
     }, 100); // 10Hz control loop for smooth motion
@@ -226,6 +228,7 @@ export class Agent {
 
 
   private startWatchdog() {
+    if (this.watchdogInterval) clearInterval(this.watchdogInterval);
     this.watchdogInterval = setInterval(() => {
       const now = Date.now();
       this.peers.forEach((peer, peerId) => {
