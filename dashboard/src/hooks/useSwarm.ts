@@ -81,7 +81,7 @@ export function useSwarm() {
 
     // Auto-detect environment for MQTT host
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const DEFAULT_MQTT_URL = isLocal ? 'ws://localhost:4000/mqtt' : 'wss://baymax-sar.onrender.com/mqtt';
+    const DEFAULT_MQTT_URL = isLocal ? 'ws://localhost:4000/mqtt' : 'wss://baymax-sar.zeabur.app/mqtt';
     const MQTT_WS_URL = (import.meta as any).env.VITE_MQTT_URL || DEFAULT_MQTT_URL;
 
     console.log(`[BAYMAX] Connecting to broker at ${MQTT_WS_URL}...`);

@@ -675,9 +675,29 @@ export default function App() {
           <div className='section-label'><ShieldAlert size={11} /> LIVE TELEMETRY</div>
           <div className='agent-list'>
             {agents.length === 0 ? (
-              <div className='empty-msg'>
-                <div className='pulse-dot' />
-                Awaiting swarm heartbeats...
+              <div className='empty-msg-container'>
+                <div className='empty-msg'>
+                  <div className='pulse-dot' />
+                  Awaiting swarm heartbeats...
+                </div>
+                <p style={{ fontSize: '9px', color: '#555', margin: '0 16px 12px', textAlign: 'center' }}>
+                  The simulation may be IDLE. Launch the swarm from the tactical hub or click below.
+                </p>
+                <button 
+                  className='start-btn' 
+                  style={{ margin: '0 16px 16px', width: 'calc(100% - 32px)' }}
+                  onClick={async () => {
+                    const API_URL = (import.meta as any).env.VITE_SAR_API_URL || 'https://baymax-sar.zeabur.app/api';
+                    try {
+                      await fetch(`${API_URL}/sar/start`, { method: 'POST' });
+                      console.log('[DASHBOARD] 🚀 Launch command sent to backend');
+                    } catch (e) {
+                      console.error('[DASHBOARD] Launch failed:', e);
+                    }
+                  }}
+                >
+                  🚀 LAUNCH MISSION
+                </button>
               </div>
             ) : (
               // SORT: Drones First, then Rovers
