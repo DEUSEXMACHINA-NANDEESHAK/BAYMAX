@@ -22,7 +22,7 @@ export class Agent {
   public isFrozen: boolean = false;
   protected isDraining: boolean = false;
   protected drainRate: number = 0;
-  // --- SIMULATION DATA (Hidden from the swarm) ---
+  // Simulation Data
   public physicalPos: { x: number; y: number; z: number };
   protected actualPeers: Map<string, { x: number; y: number; z: number }> = new Map();
 
@@ -436,7 +436,7 @@ export class Agent {
     );
   }
   
-    // --- PARTIAL FAILURE ISOLATION (PFI) ---
+  // Partial Failure Isolation
   public selfDiagnose() {
     const prevHealth = this.state.health;
 
@@ -481,7 +481,7 @@ export class Agent {
       this.selfDiagnose();
     }
   }
-  // --- Day 4: CTM HELPERS ---
+  // CTM Helpers
 
   /**
    * Simulates Signal Strength (RSSI) based on distance.

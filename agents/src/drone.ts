@@ -118,7 +118,7 @@ export class Drone extends Agent {
     return this.isRelayMode;
   }
 
-  // Bug 1 Fix: Release quadrant before dying so dashboard clears immediately
+  // Release quadrant before dying so dashboard clears immediately
   protected freeze() {
     this.quadrants = [];
     this.client.publish('swarm/drone/quadrant', JSON.stringify({
@@ -130,7 +130,7 @@ export class Drone extends Agent {
     super.freeze();
   }
 
-  // 2D XY distance — ignores altitude to correctly judge "overhead" proximity
+  // 2D XY distance calculation
   private getDist2D(tx: number, ty: number): number {
     return Math.sqrt(
       Math.pow(tx - this.physicalPos.x, 2) +
@@ -147,7 +147,7 @@ export class Drone extends Agent {
       return;
     }
 
-    // RELAY MODE: Low battery — release sector and relay
+    // Relay mode trigger
     if (this.state.battery < 25 && !this.isRelayMode) {
       this.isRelayMode = true;
       const old = this.quadrants.join(', ');
@@ -161,7 +161,7 @@ export class Drone extends Agent {
       this.announceQuadrant(); // Announce empty quadrants to clear registry
     }
 
-    // PERIODIC RE-ANNOUNCE (every 5s) to keep mesh/dashboard synced
+    // Periodic re-announce
     if (Date.now() - this.lastQuadrantAnnounce > 5000) {
       this.announceQuadrant();
     }
@@ -185,7 +185,7 @@ export class Drone extends Agent {
       return;
     }
 
-    // PATROL: Move toward next scout waypoint
+    // Patrol waypoint management
     const arrived = !this.scoutTarget || this.getDist2D(this.scoutTarget.x, this.scoutTarget.y) < 3;
     if (arrived) {
       this.scoutTarget = this.getNextWaypoint();

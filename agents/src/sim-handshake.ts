@@ -1,8 +1,8 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- * VERTEX HACKATHON — STATEFUL HANDSHAKE 🤝 (Warm-Up Proof)
+ * VERTEX HACKATHON — STATEFUL HANDSHAKE (Warm-Up Proof)
  * ═══════════════════════════════════════════════════════════════════
- * ⚔️ Goals:
+ * Goals:
  *   1. P2P Discovery & Handshake
  *   2. Symmetric JSON State Mirroring (role, status)
  *   3. Sub-1s Synchronization Latency

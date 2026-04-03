@@ -2,14 +2,7 @@ import { Agent } from './agent.js';
 
 /**
  * ROVER — Ground Rescue Unit
- * Responsibilities:
- * 1. Continuous slow patrol of assigned patrol sector (always moving, never idle)
- * 2. On task assignment: intercept victim location
- * 3. On arrival: pick up victim, return to base (0,0)
- * 4. On delivery: broadcast mission complete, resume patrol
- * 
- * IMPORTANT: Uses 2D XY distance checks only — Z is derived from terrain and must NOT
- * be used in arrival detection (terrain fluctuation causes dead-lock oscillation).
+ * Handles ground patrol, victim interception, and delivery to base.
  */
 export class Rover extends Agent {
   private currentMission: { x: number; y: number } | null = null;

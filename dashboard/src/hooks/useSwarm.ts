@@ -43,8 +43,7 @@ export interface MeshHealth {
   deadPorts?: number[];
 }
 
-// ── SINGLETON GUARD ──────────────────────────────────────────────────────────
-// Prevents double-initialization even if React re-runs the effect.
+// Singleton Guard
 let globalClient: any = null;
 
 export function useSwarm() {

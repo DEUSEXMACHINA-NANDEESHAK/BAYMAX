@@ -1,18 +1,6 @@
 /**
- * ═══════════════════════════════════════════════════════════════════
- * VERTEX HACKATHON — SAR SWARM ORCHESTRATOR  🛰️🚜🦅
- * ═══════════════════════════════════════════════════════════════════
- * 
- * This script ONLY:
- *  1. Spawns the initial 4 drones + 4 rovers (each self-managing)
- *  2. Listens for dashboard spawn requests
- *  3. Calls publishState() at high frequency for smooth animation
- * 
- * All mission logic (bidding, discovery, takeover) lives in the agents.
- * Human sets targets via Dashboard → "📍 PLACE TARGET" button.
- * 
- * GHOST NODE FIX: clientId has a per-run unique suffix so zombie
- * reconnections from previous crashes are kicked off the broker.
+ * SAR SWARM ORCHESTRATOR
+ * Spawns agents, handles dashboard requests, and publishes state.
  */
 
 import './logger.js'; // Pipes all console output to /logs/sar-run-<timestamp>.log

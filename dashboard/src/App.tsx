@@ -16,7 +16,7 @@ const getTerrainHeight = (x: number, y: number) => {
   return Math.sin(lx * 0.1) * Math.cos(ly * 0.1) * 3 + Math.sin(lx * 0.05) * 1.5;
 };
 
-// ─── AGENT NODE (3D) ─────────────────────────────────────────────────────────
+// Agent Node (3D)
 function AgentNode({ agent }: { agent: AgentState }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const glowRef = useRef<THREE.Mesh>(null!);
@@ -117,7 +117,7 @@ function AgentNode({ agent }: { agent: AgentState }) {
   );
 }
 
-// ─── MESH LINKS (P2P network edges) ──────────────────────────────────────────
+// Mesh Links
 function MeshLinks({ agents }: { agents: AgentState[] }) {
   const activeAgents = agents.filter(a => a.health !== 'DEAD');
   const links: Array<[[number,number,number],[number,number,number]]> = [];
@@ -165,7 +165,7 @@ function MeshLinks({ agents }: { agents: AgentState[] }) {
   );
 }
 
-// ─── THREAT TARGET ───────────────────────────────────────────────────────────
+// Threat Target
 function ThreatNode({ task, agents }: { task: SwarmTask; agents: AgentState[] }) {
   const meshRef = useRef<THREE.Mesh>(null!);
   const winner = agents.find(a => a.id === task.winnerId && a.health !== 'DEAD');
@@ -374,7 +374,7 @@ function CoordinateMarkers() {
   );
 }
 
-// ─── 3D SCENE ─────────────────────────────────────────────────────────────────
+// 3D Scene
 function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerLeave, droneQuadrants }: { 
   agents: AgentState[]; 
   tasks: SwarmTask[];
@@ -414,7 +414,7 @@ function Scene({ agents, tasks, onPlaceTask, ghostPos, onPointerMove, onPointerL
   );
 }
 
-// ─── MAP QUADRANTS (3D visualization of search sectors) ──────────────────────
+// Map Quadrants
 function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number[]> }) {
   const quadrants = [
     { id: 1, name: 'Q1', x: 12.5, y: 15,  w: 25, h: 30, color: '#00f3ff' },
@@ -479,7 +479,7 @@ function MapQuadrants({ droneQuadrants }: { droneQuadrants: Map<string, number[]
   );
 }
 
-// ─── AGENT CARD ───────────────────────────────────────────────────────────────
+// Agent Card
 function AgentCard({ agent, onKill, onGpsFail, onDrain }: {
   agent: AgentState;
   onKill: () => void;
@@ -539,7 +539,7 @@ function AgentCard({ agent, onKill, onGpsFail, onDrain }: {
   );
 }
 
-// ─── NETWORK STATS HUD ───────────────────────────────────────────────────────
+// Network HUD
 function NetworkHUD({ agents, tasks, connected }: { agents: AgentState[]; tasks: SwarmTask[]; connected: boolean }) {
   const alive = agents.filter(a => a.health !== 'DEAD').length;
   const drones = agents.filter(a => a.type === 'drone').length;
@@ -573,7 +573,7 @@ function NetworkHUD({ agents, tasks, connected }: { agents: AgentState[]; tasks:
   );
 }
 
-// ─── SIMULATION STATUS OVERLAY ─────────────────────────────────────────────
+// Sim Status Overlay
 function SimStatusOverlay({ status }: { status: { timer: number; message: string } | null }) {
   if (!status || status.timer <= 0) return null;
 
@@ -597,7 +597,7 @@ function SimStatusOverlay({ status }: { status: { timer: number; message: string
   );
 }
 
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
+// Main App
 export default function App() {
   const { agents, tasks, events, connected, simStatus, meshHealth, droneQuadrants, sendCommand } = useSwarm();
   const [isPlacing, setIsPlacing] = useState(false);
@@ -672,7 +672,7 @@ export default function App() {
         
         {/* Scrollable Content Area */}
         <div className="sidebar-content" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {/* ── TAB: SWARM ─────────────────────────────── */}
+          // Tab: Swarm
         {sideTab === 'swarm' && (<>
           <div className='section-label'><ShieldAlert size={11} /> LIVE TELEMETRY</div>
           <div className='agent-list'>
@@ -719,7 +719,7 @@ export default function App() {
           </div>
         </>)}
 
-        {/* ── TAB: FEED ───────────────────────────── */}
+        // Tab: Feed
         {sideTab === 'feed' && (<>
           <div className='section-label'><Terminal size={11} /> SECTOR FEED</div>
           <div className='event-log' style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
@@ -742,7 +742,7 @@ export default function App() {
           </div>
         </>)}
 
-        {/* ── TAB: MESH LOGS ────────────────────────── */}
+        // Tab: Mesh Logs
         {sideTab === 'mesh' && (<>
           <div className='section-label'><Network size={11} /> SYSTEM CONSENSUS</div>
           <div className='event-log' style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
@@ -765,7 +765,7 @@ export default function App() {
           </div>
         </>)}
 
-        {/* ── TAB: PILLARS ───────────────────────────── */}
+        // Tab: Pillars
         {sideTab === 'pillars' && (<>
           <div className='section-label'><AlertTriangle size={11} /> VERTEX PILLARS</div>
 
