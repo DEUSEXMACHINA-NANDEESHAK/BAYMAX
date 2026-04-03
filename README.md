@@ -2,7 +2,7 @@
 
 [This is AI-GENERATED DOCUMENT. Might not be 100% Accurate, but it gets the job done..!]
 
-LIVE AT: nandeeshak.com/sar/demo
+LIVE AT: [https://nandeeshak.com/sar/demo](https://nandeeshak.com/sar/demo)
 
 ## 🌌 The Mission
 
